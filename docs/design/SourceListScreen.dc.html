@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="SOURCE-001 수집 소스" data-screen-id="SOURCE-001" style="display:flex;flex-direction:column;gap:20px">
+  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h1 style="margin:0;font-size:28px;font-weight:700">수집 소스</h1>
+      <p style="margin:0;color:#6B6A66">키워드·게시판·URL 수집 설정을 등록하고 관리합니다</p>
+    </div>
+    <button type="button" data-ui-id="SOURCE-001-U01" onClick="{{ onAdd }}" style="height:44px;padding:0 16px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer" style-hover="background:#234A86">+ 소스 추가</button>
+  </header>
+
+  <div data-ui-id="SOURCE-001-U02" style="display:flex;flex-direction:column;gap:14px">
+    <div role="tablist" aria-label="소스 유형" style="display:flex;gap:28px;border-bottom:1px solid #DAD8D2">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+    <p style="margin:0;font-size:13px;color:#4A4945">탭은 같은 표를 유형별로 거르는 필터입니다</p>
+  </div>
+
+  <section data-func-id="FN-SRC-001" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:12px 24px 24px">
+    <div style="overflow-x:auto">
+      <table data-ui-id="SOURCE-001-U03" style="width:100%;border-collapse:collapse;font-size:14px;min-width:960px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">이름</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">유형</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">대상</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">정기 수집</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">마지막 수집</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">상태</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">분석 설정</th>
+          <th scope="col" style="padding:14px 0 10px;border-bottom:1px solid #E8E6E0"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">작업</span></th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+            <tr>
+              <td style="padding:12px 12px 12px 0;border-bottom:1px solid #E8E6E0"><a href="{{ r.href }}" style="font-weight:700">{{ r.name }}</a></td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="{{ r.type.style }}">{{ r.type.label }}</span></td>
+              <td style="padding:12px 12px 12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.target }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ r.schedule }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.last }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="{{ r.status.style }}">{{ r.status.label }}</span></td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945"><span style="{{ r.analysis.style }}">{{ r.analysis.label }}</span></td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;text-align:right">
+                <button type="button" data-ui-id="SOURCE-001-U04" data-func-id="FN-COL-001" onClick="{{ r.onCollect }}" disabled="{{ r.busy }}" aria-label="{{ r.collectAria }}" style="height:36px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:#F6F5F1">{{ r.collectLabel }}</button>
+              </td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+      <!-- Empty [추정] [문구 확인 필요] -->
+      <div style="padding:40px 0 16px;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <p style="margin:0;font-weight:600">등록된 소스가 없습니다</p>
+        <p style="margin:0;font-size:13px;color:#6B6A66">[문구 확인 필요]</p>
+        <button type="button" onClick="{{ onAdd }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">+ 소스 추가</button>
+      </div>
+    </sc-if>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TONES = { gray: ['#EBE9E4', '#4A4945'], green: ['#E2F0E3', '#2E6B3A'], orange: ['#FBE6D8', '#A4470F'], blue: ['#E4EBF6', '#2A5599'], none: ['transparent', '#4A4945'] };
+const badge = (label, t) => ({ label, style: { display: 'inline-flex', padding: t === 'none' ? 0 : '2px 10px', borderRadius: 999, fontSize: t === 'none' ? 14 : 12, fontWeight: t === 'none' ? 400 : 600, whiteSpace: 'nowrap', background: TONES[t][0], color: TONES[t][1] } });
+const STATUS = { success: ['성공', 'green'], zero3: ['0건 3회', 'orange'], robots: ['robots 차단', 'orange'], idle: ['대기', 'gray'], queued: ['대기', 'gray'], running: ['실행 중', 'blue'] };
+const TYPE = { news: ['뉴스 키워드', 'blue'], board: ['게시판', 'gray'], url: ['URL', 'gray'] };
+const FORM = { news: 'SOURCE-002', board: 'SOURCE-003', url: 'SOURCE-005' };
+const SCHED = { manual: '수동', hourly: '매시간', daily: '매일', weekly: '매주', cron: '고급(cron)' };
+const tabStyle = (on) => ({ padding: '10px 2px', background: 'none', border: 'none', borderBottom: on ? '2px solid #2A5599' : '2px solid transparent', marginBottom: -1, fontSize: 14, fontWeight: 700, color: on ? '#1F1F1F' : '#4A4945', cursor: 'pointer' });
+
+class Component extends DCLogic {
+  state = { tab: 'all' };
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const tabs = [['all', '전체'], ['news', '뉴스 키워드'], ['board', '게시판'], ['url', 'URL']].map(([id, label]) => ({
+      label, selected: this.state.tab === id ? 'true' : 'false', style: tabStyle(this.state.tab === id), onClick: () => this.setState({ tab: id }),
+    }));
+    const rows = st.sources.filter((s) => this.state.tab === 'all' || s.type === this.state.tab).map((s) => {
+      const busy = s.status === 'queued' || s.status === 'running';
+      return {
+        name: s.name, href: `#/${FORM[s.type]}?id=${s.id}`, type: badge(...TYPE[s.type]), target: s.target,
+        schedule: s.cron ? `cron ${s.cron}` : SCHED[s.schedule] + (s.time && s.schedule !== 'manual' && s.schedule !== 'hourly' ? ` ${s.time}` : ''),
+        last: s.last || '—', status: badge(...STATUS[s.status]),
+        analysis: s.analysis === 'custom' ? badge('개별 설정', 'blue') : badge('내 기본값', 'none'),
+        busy, collectLabel: busy ? '수집 중…' : '지금 수집', collectAria: `${s.name} 지금 수집`,
+        onCollect: () => app.runCollect([s.id]),
+      };
+    });
+    return { tabs, rows, empty: rows.length === 0, onAdd: () => app.nav('SOURCE-002') };
+  }
+}
+</script>
+</body>
+</html>

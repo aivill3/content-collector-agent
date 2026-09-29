@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>콘텐츠 수집 Agent — Prototype</title>
+<template id="__bundler_thumbnail" data-bg-color="#2A5599"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="30" y="30" width="40" height="40" rx="8" fill="#fff"/><rect x="38" y="40" width="24" height="4" rx="2" fill="#2A5599"/><rect x="38" y="48" width="18" height="4" rx="2" fill="#2A5599"/><rect x="38" y="56" width="21" height="4" rx="2" fill="#2A5599"/></svg></template>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="services/bundle.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#F3F2EE;color:#1F1F1F;font-family:'IBM Plex Sans KR',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+a{color:#2A5599;text-decoration:none}
+a:hover{color:#1D3F75;text-decoration:underline}
+button,input,select,textarea{font-family:inherit}
+button{white-space:nowrap}
+button:disabled{opacity:.5;cursor:not-allowed !important}
+:focus-visible{outline:2px solid #2A5599;outline-offset:2px}
+@keyframes ccPulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes ccIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</helmet>
+
+<sc-if value="{{ showBoot }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#6B6A66;font-size:14px">불러오는 중…</div>
+</sc-if>
+
+<!-- MEMBER-001 로그인 -->
+<sc-if value="{{ showLogin }}" hint-placeholder-val="{{ true }}">
+  <main data-screen-label="MEMBER-001 로그인" data-screen-id="MEMBER-001" style="{{ lay.login }}">
+    <section data-ui-id="MEMBER-001-U01" style="{{ lay.loginLeft }}">
+      <div style="font-size:17px;font-weight:700">콘텐츠 수집 Agent</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <h2 style="{{ lay.loginHead }}">키워드 뉴스와 게시판 글을<br>한곳에 모아 봅니다</h2>
+        <p style="margin:0;color:#6B6A66">[서비스 소개 문구]</p>
+        <!-- [확인 필요] 서비스 화면 이미지 미정 -->
+        <!-- [추정] 모바일에서는 이미지 자리 숨김 -->
+        <sc-if value="{{ showLoginImage }}" hint-placeholder-val="{{ true }}"><div style="margin-top:14px;height:262px;border:1px dashed #C9C6BE;border-radius:8px;background:#EBE9E4;display:flex;align-items:center;justify-content:center;color:#6B6A66;font-size:13px">서비스 화면 이미지 자리</div></sc-if>
+      </div>
+      <!-- [확인 필요] 이용약관·개인정보처리방침 링크 대상 -->
+      <div style="font-size:13px;color:#6B6A66">[회사명] · 이용약관 · 개인정보처리방침</div>
+    </section>
+    <section style="display:flex;align-items:center;justify-content:center;padding:48px 24px">
+      <form onSubmit="{{ onLogin }}" novalidate style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:0">
+        <h1 data-ui-id="MEMBER-001-U02" style="margin:0 0 26px;font-size:26px;font-weight:700">로그인</h1>
+        <sc-if value="{{ loginError }}" hint-placeholder-val="{{ false }}">
+          <div data-ui-id="MEMBER-001-U03" role="alert" style="margin-bottom:22px;padding:12px 14px;border-radius:8px;background:#FBE6D8;color:#A4470F;font-size:13px">이메일 또는 비밀번호가 올바르지 않습니다</div>
+        </sc-if>
+        <label for="login-email" style="font-size:13px;font-weight:600;margin-bottom:8px">이메일</label>
+        <input id="login-email" data-ui-id="MEMBER-001-U04" type="email" autocomplete="email" placeholder="name@company.com" value="{{ email }}" onChange="{{ onEmail }}" aria-invalid="{{ emailInvalid }}" aria-describedby="login-email-err" style="height:44px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;color:#1F1F1F;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+        <div id="login-email-err" style="min-height:22px;padding-top:4px;font-size:12px;color:#A4470F">{{ emailErr }}</div>
+        <label for="login-pw" style="font-size:13px;font-weight:600;margin:6px 0 8px">비밀번호</label>
+        <input id="login-pw" data-ui-id="MEMBER-001-U05" type="password" autocomplete="current-password" value="{{ password }}" onChange="{{ onPassword }}" aria-invalid="{{ pwInvalid }}" aria-describedby="login-pw-err" style="height:44px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;color:#1F1F1F;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+        <div id="login-pw-err" style="min-height:22px;padding-top:4px;font-size:12px;color:#A4470F">{{ pwErr }}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 18px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer">
+            <input data-ui-id="MEMBER-001-U06" type="checkbox" checked="{{ keep }}" onChange="{{ onKeep }}" style="width:18px;height:18px;margin:0;accent-color:#2A5599">로그인 유지
+          </label>
+          <a data-ui-id="MEMBER-001-U07" href="#" onClick="{{ onFindPw }}" style="font-size:14px;font-weight:600">비밀번호 찾기</a>
+        </div>
+        <button data-ui-id="MEMBER-001-U08" data-func-id="FN-AUTH-001" type="submit" disabled="{{ loggingIn }}" style="height:48px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:15px;font-weight:700;cursor:pointer" style-hover="background:#234A86">{{ loginLabel }}</button>
+        <div style="height:1px;background:#DAD8D2;margin:20px 0 22px"></div>
+        <div style="text-align:center;font-size:14px;color:#6B6A66">계정이 없으신가요? <a data-ui-id="MEMBER-001-U09" href="#" onClick="{{ onSignup }}" style="font-weight:600">회원가입</a> · <a data-ui-id="MEMBER-001-U10" href="#" onClick="{{ onInquiry }}" style="font-weight:600">도입 문의</a></div>
+      </form>
+    </section>
+  </main>
+</sc-if>
+
+<!-- COMMON-001 공통 레이아웃 -->
+<sc-if value="{{ showApp }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-id="COMMON-001" style="{{ lay.shell }}">
+    <!-- 태블릿·모바일(<1024px): 상단 바 + 메뉴 버튼 → 서랍형 사이드바 [추정] -->
+    <sc-if value="{{ compact }}" hint-placeholder-val="{{ false }}">
+      <div style="position:sticky;top:0;z-index:30;height:56px;background:#fff;border-bottom:1px solid #E4E2DC;display:flex;align-items:center;gap:6px;padding:0 8px">
+        <button type="button" data-ui-id="COMMON-001-U06" aria-label="메뉴 열기" aria-controls="cc-nav" aria-expanded="{{ drawerAttr }}" onClick="{{ onOpenDrawer }}" style="width:44px;height:44px;border:none;background:none;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" style-hover="background:#F3F2EE"><span style="width:20px;height:2px;background:#1F1F1F;border-radius:1px"></span><span style="width:20px;height:2px;background:#1F1F1F;border-radius:1px"></span><span style="width:20px;height:2px;background:#1F1F1F;border-radius:1px"></span></button>
+        <a href="#/MAIN-001" style="flex:1;font-size:16px;font-weight:700;color:#1F1F1F;text-decoration:none">콘텐츠 수집 Agent</a>
+        <a href="#/SETTING-001" data-ui-id="COMMON-001-U07" aria-label="분석 설정" title="분석 설정" style="width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#4A4945;text-decoration:none" style-hover="background:#F3F2EE">⚙</a>
+      </div>
+    </sc-if>
+    <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ onCloseDrawer }}" aria-hidden="true" style="position:fixed;inset:0;background:rgba(20,20,18,.38);z-index:40"></div></sc-if>
+    <aside id="cc-nav" aria-label="사이드바" style="{{ lay.aside }}">
+      <sc-if value="{{ compact }}" hint-placeholder-val="{{ false }}"><button type="button" aria-label="메뉴 닫기" onClick="{{ onCloseDrawer }}" style="position:absolute;top:14px;right:10px;width:44px;height:44px;border:none;background:none;border-radius:8px;font-size:22px;line-height:1;color:#4A4945;cursor:pointer" style-hover="background:#F3F2EE">×</button></sc-if>
+      <a data-ui-id="COMMON-001-U01" href="#/MAIN-001" style="padding:4px 12px 28px;font-size:16px;font-weight:700;color:#1F1F1F;text-decoration:none">콘텐츠 수집 Agent</a>
+      <nav aria-label="주 메뉴" data-ui-id="COMMON-001-U02" style="display:flex;flex-direction:column;gap:4px">
+        <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="7">
+          <a href="{{ n.href }}" aria-current="{{ n.current }}" style="{{ n.style }}" style-hover="background:#F3F2EE">{{ n.label }}</a>
+        </sc-for>
+      </nav>
+      <!-- [확인 필요] 관리자 메뉴의 멤버 노출 여부 — 와이어프레임대로 양쪽 모두 표시 -->
+      <div data-ui-id="COMMON-001-U03" style="display:flex;flex-direction:column;gap:4px;margin-top:18px">
+        <div style="padding:0 12px 6px;font-size:12px;color:#6B6A66">관리자 전용</div>
+        <a href="#/ADMIN-001" aria-current="{{ adminNav.current }}" style="{{ adminNav.style }}" style-hover="background:#F3F2EE">관리자</a>
+      </div>
+      <div style="flex:1"></div>
+      <!-- [확인 필요] 로그아웃·계정 메뉴 없음 (Gap) -->
+      <div data-ui-id="COMMON-001-U04" style="border-top:1px solid #E4E2DC;padding:16px 12px 0;display:flex;gap:10px;align-items:center">
+        <div aria-hidden="true" style="width:32px;height:32px;border-radius:50%;background:#EBE9E4;flex:none"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+          <span style="font-size:13px;font-weight:700">[사용자 이름]</span>
+          <span style="font-size:12px;color:#6B6A66">{{ roleLabel }}</span>
+        </div>
+        <a href="#/SETTING-001" data-ui-id="COMMON-001-U08" aria-label="분석 설정" title="분석 설정" style="margin-left:auto;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#4A4945;text-decoration:none;flex:none" style-hover="background:#F3F2EE">⚙</a>
+      </div>
+    </aside>
+
+    <main style="{{ lay.main }}">
+      <sc-if value="{{ view.loading }}" hint-placeholder-val="{{ false }}">
+        <div aria-busy="true" aria-label="불러오는 중" style="display:flex;flex-direction:column;gap:20px;animation:ccPulse 1.2s ease-in-out infinite">
+          <div style="width:220px;height:30px;border-radius:6px;background:#E4E2DC"></div>
+          <div style="width:380px;height:14px;border-radius:6px;background:#E4E2DC"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">
+            <div style="height:140px;border-radius:14px;background:#fff;border:1px solid #E4E2DC"></div>
+            <div style="height:140px;border-radius:14px;background:#fff;border:1px solid #E4E2DC"></div>
+            <div style="height:140px;border-radius:14px;background:#fff;border:1px solid #E4E2DC"></div>
+          </div>
+          <div style="height:360px;border-radius:14px;background:#fff;border:1px solid #E4E2DC"></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ view.error }}" hint-placeholder-val="{{ false }}">
+        <!-- 공통 Error 상태 [문구 확인 필요] -->
+        <div role="alert" style="max-width:560px;margin:80px auto;background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:32px;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <span style="padding:2px 10px;border-radius:999px;background:#FBE6D8;color:#A4470F;font-size:12px;font-weight:600">오류</span>
+          <h2 style="margin:0;font-size:18px">데이터를 불러오지 못했습니다</h2>
+          <p style="margin:0;color:#6B6A66;font-size:13px">[문구 확인 필요] 네트워크·서버 오류 시 공통 안내. Tweaks의 데이터 상태를 '정상'으로 바꾸면 복구됩니다.</p>
+          <button type="button" onClick="{{ onRetry }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">다시 시도</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ view.denied }}" hint-placeholder-val="{{ false }}">
+        <!-- Permission Denied [추정] / [확인 필요] -->
+        <div role="alert" style="max-width:560px;margin:80px auto;background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:32px;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:12px;font-weight:600">권한 없음</span>
+          <h2 style="margin:0;font-size:18px">관리자만 볼 수 있는 화면입니다</h2>
+          <p style="margin:0;color:#6B6A66;font-size:13px">[확인 필요] 멤버 접근 시 메뉴 숨김 또는 안내 중 정책 미정. Tweaks에서 역할을 '관리자'로 바꾸면 ADMIN-001을 볼 수 있습니다.</p>
+          <a href="#/MAIN-001" style="font-weight:600">대시보드로 이동</a>
+        </div>
+      </sc-if>
+      <sc-if value="{{ view.MAIN }}" hint-placeholder-val="{{ false }}"><dc-import name="DashboardScreen" app="{{ app }}" hint-size="100%,1200px"></dc-import></sc-if>
+      <sc-if value="{{ view.CONTENT_LIST }}" hint-placeholder-val="{{ false }}"><dc-import name="ContentListScreen" app="{{ app }}" hint-size="100%,900px"></dc-import></sc-if>
+      <sc-if value="{{ view.CONTENT_DETAIL }}" hint-placeholder-val="{{ false }}"><dc-import name="ContentDetailScreen" app="{{ app }}" hint-size="100%,1300px"></dc-import></sc-if>
+      <sc-if value="{{ view.SOURCE_LIST }}" hint-placeholder-val="{{ false }}"><dc-import name="SourceListScreen" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+      <sc-if value="{{ view.SOURCE_FORM }}" hint-placeholder-val="{{ false }}"><dc-import name="SourceFormScreen" app="{{ app }}" hint-size="100%,1800px"></dc-import></sc-if>
+      <sc-if value="{{ view.JOB }}" hint-placeholder-val="{{ false }}"><dc-import name="JobScreen" app="{{ app }}" hint-size="100%,1000px"></dc-import></sc-if>
+      <sc-if value="{{ view.ANALYSIS }}" hint-placeholder-val="{{ false }}"><dc-import name="AnalysisScreen" app="{{ app }}" hint-size="100%,1600px"></dc-import></sc-if>
+      <sc-if value="{{ view.SETTING }}" hint-placeholder-val="{{ false }}"><dc-import name="SettingsScreen" app="{{ app }}" hint-size="100%,1800px"></dc-import></sc-if>
+      <sc-if value="{{ view.DICT }}" hint-placeholder-val="{{ false }}"><dc-import name="DictionaryScreen" app="{{ app }}" hint-size="100%,1300px"></dc-import></sc-if>
+      <sc-if value="{{ view.ADMIN }}" hint-placeholder-val="{{ false }}"><dc-import name="AdminScreen" app="{{ app }}" hint-size="100%,1500px"></dc-import></sc-if>
+    </main>
+  </div>
+</sc-if>
+
+<!-- 공통 Toast — 문구 정책 미정 [문구 확인 필요] -->
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+  <div role="status" aria-live="polite" style="position:fixed;left:50%;bottom:32px;transform:translateX(-50%);background:#1F1F1F;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:60;max-width:min(560px,90vw);animation:ccIn .2s ease-out">{{ toast }}</div>
+</sc-if>
+
+<!-- 공통 확인 Modal — [모달 닫기 정책 확인 필요] ESC·바깥 클릭 닫기는 추정 구현 -->
+<sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ onModalBackdrop }}" style="position:fixed;inset:0;background:rgba(20,20,18,.38);display:flex;align-items:center;justify-content:center;z-index:70;padding:24px">
+    <div role="dialog" aria-modal="true" aria-labelledby="cc-modal-title" onClick="{{ stop }}" style="width:100%;max-width:420px;background:#fff;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px;box-shadow:0 16px 48px rgba(0,0,0,.2)">
+      <h2 id="cc-modal-title" style="margin:0;font-size:17px;font-weight:700">{{ modal.title }}</h2>
+      <p style="margin:0;color:#4A4945;font-size:14px;line-height:1.6">{{ modal.body }}</p>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+        <button type="button" onClick="{{ onModalCancel }}" style="height:38px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">취소</button>
+        <button type="button" ref="{{ okRef }}" onClick="{{ onModalOk }}" style="height:38px;padding:0 16px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ modal.okLabel }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;role&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;멤버&quot;, &quot;관리자&quot;], &quot;default&quot;: &quot;멤버&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;시뮬레이션&quot;}, &quot;dataState&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;정상&quot;, &quot;빈 상태&quot;, &quot;오류&quot;], &quot;default&quot;: &quot;정상&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;시뮬레이션&quot;}, &quot;loginResult&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;성공&quot;, &quot;인증 실패&quot;], &quot;default&quot;: &quot;성공&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;시뮬레이션&quot;}, &quot;startAt&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;로그인부터&quot;, &quot;로그인 건너뛰기&quot;], &quot;default&quot;: &quot;로그인부터&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;시뮬레이션&quot;}}">
+const NAV = [
+  ['MAIN-001', '대시보드', ['MAIN-001']],
+  ['CONTENT-001', '콘텐츠', ['CONTENT-001', 'CONTENT-002', 'CONTENT-003']],
+  ['SOURCE-001', '수집 소스', ['SOURCE-001', 'SOURCE-002', 'SOURCE-003', 'SOURCE-004', 'SOURCE-005']],
+  ['JOB-001', '수집 작업', ['JOB-001']],
+  ['ANALYSIS-001', '키워드 분석', ['ANALYSIS-001']],
+  ['SETTING-001', '분석 설정', ['SETTING-001']],
+  ['SETTING-002', '사전', ['SETTING-002', 'SETTING-003']],
+];
+const ROUTES = {
+  'MAIN-001': 'MAIN', 'CONTENT-001': 'CONTENT_LIST', 'CONTENT-002': 'CONTENT_DETAIL', 'CONTENT-003': 'CONTENT_DETAIL',
+  'SOURCE-001': 'SOURCE_LIST', 'SOURCE-002': 'SOURCE_FORM', 'SOURCE-003': 'SOURCE_FORM', 'SOURCE-004': 'SOURCE_FORM', 'SOURCE-005': 'SOURCE_FORM',
+  'JOB-001': 'JOB', 'ANALYSIS-001': 'ANALYSIS', 'SETTING-001': 'SETTING', 'SETTING-002': 'DICT', 'SETTING-003': 'DICT', 'ADMIN-001': 'ADMIN',
+};
+const navStyle = (on) => ({
+  display: 'block', padding: '10px 12px', borderRadius: 8, fontSize: 14, textDecoration: 'none',
+  background: on ? '#E6ECF5' : 'transparent', color: on ? '#2A5599' : '#1F1F1F', fontWeight: on ? 700 : 500,
+});
+// Breakpoints — 디자인 값 미정 [디자인 시스템 확인 필요]. 일반적으로 가장 많이 쓰는 기준 채택 [추정]
+// mobile < 768 ≤ tablet < 1024 ≤ desktop
+const BP = { tablet: 768, desktop: 1024 };
+const bpOf = (w) => (w >= BP.desktop ? 'desktop' : w >= BP.tablet ? 'tablet' : 'mobile');
+const pad = (n) => String(n).padStart(2, '0');
+const nowStr = () => { const d = new Date(); return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+
+class Component extends DCLogic {
+  state = {
+    booting: true, store: null, authed: false, route: 'MAIN-001', params: {}, routeLoading: false,
+    email: '', password: '', keep: false, loginError: false, fieldErr: {}, loggingIn: false,
+    toast: null, modal: null, vw: typeof window !== 'undefined' ? window.innerWidth : 1440, drawerOpen: false,
+  };
+  okRef = React.createRef();
+
+  async componentDidMount() {
+    this.onHash = () => this.readHash();
+    this.onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.state.modal) this.setState({ modal: null });
+      else if (this.state.drawerOpen) this.closeDrawer();
+    };
+    this.onResize = () => this.setState({ vw: window.innerWidth, ...(window.innerWidth >= BP.desktop ? { drawerOpen: false } : {}) });
+    window.addEventListener('resize', this.onResize);
+    window.addEventListener('hashchange', this.onHash);
+    window.addEventListener('keydown', this.onKey);
+    this.api = window.CCApi || (await import('./services/api.js')).api;
+    const store = await this.api.fetchInitial();
+    // ?preview=1 → 로그인 건너뛰기, ?role=admin → 관리자 (전체 화면 모아보기용)
+    const q = new URLSearchParams(location.search);
+    const skip = this.props.startAt === '로그인 건너뛰기' || q.has('preview');
+    this.setState({ store, booting: false, authed: skip, roleOverride: q.get('role') === 'admin' ? '관리자' : null });
+    this.readHash();
+  }
+  componentWillUnmount() {
+    window.removeEventListener('hashchange', this.onHash);
+    window.removeEventListener('keydown', this.onKey);
+    window.removeEventListener('resize', this.onResize);
+    clearTimeout(this.toastT); clearTimeout(this.loadT);
+  }
+  componentDidUpdate(_, prev) {
+    if (!prev.modal && this.state.modal && this.okRef.current) this.okRef.current.focus();
+    if (!prev.drawerOpen && this.state.drawerOpen) { const a = document.querySelector('#cc-nav nav a'); a && a.focus(); }
+  }
+  closeDrawer = () => {
+    this.setState({ drawerOpen: false });
+    const b = document.querySelector('[data-ui-id="COMMON-001-U06"]'); b && b.focus();
+  };
+
+  readHash() {
+    const h = (location.hash || '').replace(/^#\/?/, '');
+    const [r, qs] = h.split('?');
+    const route = ROUTES[r] ? r : 'MAIN-001';
+    const params = Object.fromEntries(new URLSearchParams(qs || ''));
+    const sameView = ROUTES[route] === ROUTES[this.state.route];
+    this.setState({ route, params, routeLoading: !sameView, drawerOpen: false });
+    clearTimeout(this.loadT);
+    if (!sameView) { window.scrollTo(0, 0); this.loadT = setTimeout(() => this.setState({ routeLoading: false }), 380); }
+  }
+  nav = (route, params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    const next = '#/' + route + qs;
+    if (location.hash === next) this.readHash(); else location.hash = next;
+  };
+  toast = (msg) => {
+    clearTimeout(this.toastT);
+    this.setState({ toast: msg });
+    this.toastT = setTimeout(() => this.setState({ toast: null }), 2800);
+  };
+  confirm = (modal) => this.setState({ modal: { okLabel: '확인', ...modal } });
+  update = (fn) => this.setState((s) => ({ store: fn(s.store) }));
+
+  // FUNC: FN-COL-001 지금 수집 — UI 수준 중복 클릭 방지만 구현. 서버 멱등성 [API 확인 필요]
+  runCollect = (ids, mode = '수동') => {
+    const st = this.state.store;
+    const targets = ids.filter((id) => { const s = st.sources.find((x) => x.id === id); return s && !['queued', 'running'].includes(s.status); });
+    if (!targets.length) { this.toast('이미 실행 중인 소스입니다'); return []; }
+    const jobIds = targets.map((id, i) => 'J' + Date.now().toString(36) + i);
+    const setSrc = (s, id, patch) => s.sources.map((x) => (x.id === id ? { ...x, ...patch } : x));
+    this.update((s) => {
+      let sources = s.sources;
+      targets.forEach((id) => { sources = sources.map((x) => (x.id === id ? { ...x, prevStatus: x.status, status: 'queued' } : x)); });
+      const newJobs = targets.map((id, i) => ({ id: jobIds[i], time: nowStr(), sourceId: id, mode, dur: null, status: 'queued', count: null }));
+      return { ...s, sources, jobs: [...newJobs, ...s.jobs] };
+    });
+    targets.forEach((id, i) => {
+      const jid = jobIds[i];
+      setTimeout(() => this.update((s) => ({ ...s, sources: setSrc(s, id, { status: 'running' }), jobs: s.jobs.map((j) => (j.id === jid ? { ...j, status: 'running' } : j)) })), 1000);
+      setTimeout(() => this.update((s) => {
+        const src = s.sources.find((x) => x.id === id);
+        // MOCK: 기존에 0건/robots 상태였던 소스는 실패로 재현
+        const fail = src.prevStatus === 'zero3' || src.prevStatus === 'robots';
+        const count = fail ? 0 : 1 + Math.floor(Math.random() * 8);
+        const job = fail
+          ? { status: 'fail', count: 0, dur: 4, reason: src.prevStatus === 'robots' ? 'robots.txt가 이 경로의 수집을 허용하지 않습니다.' : '목록 페이지에서 글을 찾지 못했습니다. 자바스크립트로 목록을 그리는 게시판이거나 선택자가 맞지 않습니다.' }
+          : { status: 'success', count, dur: 6 + Math.floor(Math.random() * 12), stages: { search: count * 5, dedup: count * 4, period: count * 2, fresh: count + 1, body: count + 1, clean: count } };
+        return {
+          ...s,
+          sources: setSrc(s, id, { status: fail ? src.prevStatus : 'success', last: nowStr(), recentNew: count }),
+          jobs: s.jobs.map((j) => (j.id === jid ? { ...j, ...job } : j)),
+        };
+      }), 2800);
+    });
+    this.toast(`수집 작업 ${targets.length}건을 등록했습니다`);
+    return jobIds;
+  };
+
+  // FUNC: FN-AUTH-001 로그인
+  handleLogin = async (e) => {
+    e.preventDefault();
+    const { email, password, keep } = this.state;
+    // [Validation Rule 확인 필요] 기획서: 필수만 확정, 이메일 형식 검증은 [추정] → 필수 검증만 구현
+    const fieldErr = {};
+    if (!email.trim()) fieldErr.email = '필수 입력 항목입니다';
+    if (!password) fieldErr.password = '필수 입력 항목입니다';
+    this.setState({ fieldErr, loginError: false });
+    if (Object.keys(fieldErr).length) return;
+    this.setState({ loggingIn: true });
+    const res = await this.api.login({ email, password, keep }, this.props.loginResult === '인증 실패');
+    if (!res.ok) { this.setState({ loggingIn: false, loginError: true, password: '' }); return; } // 비밀번호 처리 [정책 필요]
+    this.setState({ loggingIn: false, authed: true });
+    this.nav('MAIN-001');
+  };
+
+  emptyStore(s) {
+    return { ...s, sources: [], contents: [], jobs: [], stopwords: [], compounds: [],
+      analysis: { ...s.analysis, core: [], rising: [], hit: [], related: {} }, daily: s.daily.map(() => ({ news: 0, board: 0, url: 0 })),
+      admin: { ...s.admin, usage: [], core: [], keywords: [] } };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const role = s.roleOverride ?? this.props.role ?? '멤버';
+    const dataState = this.props.dataState ?? '정상';
+    const group = NAV.find((n) => n[2].includes(s.route));
+    const navItems = NAV.map(([id, label]) => {
+      const on = group && group[0] === id;
+      return { href: '#/' + id, label, current: on ? 'page' : undefined, style: navStyle(on) };
+    });
+    const adminOn = s.route === 'ADMIN-001';
+    const key = ROUTES[s.route];
+    const denied = key === 'ADMIN' && role !== '관리자';
+    const loading = s.routeLoading;
+    const error = !loading && dataState === '오류';
+    const ready = s.store && !loading && !error && !denied;
+    const view = { loading, error, denied: !loading && denied };
+    Object.values(ROUTES).forEach((k) => { view[k] = !!(ready && key === k); });
+    const store = s.store ? (dataState === '빈 상태' ? this.emptyStore(s.store) : s.store) : null;
+    const bp = bpOf(s.vw);
+    const compact = bp !== 'desktop';
+    const mobile = bp === 'mobile';
+    const lay = {
+      login: { minHeight: '100vh', display: 'grid', gridTemplateColumns: compact ? 'minmax(0,1fr)' : 'minmax(0,620px) minmax(0,1fr)' },
+      loginLeft: { background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        borderRight: compact ? 'none' : '1px solid #E4E2DC', borderBottom: compact ? '1px solid #E4E2DC' : 'none',
+        padding: mobile ? '28px 20px' : compact ? '40px 40px' : '64px', gap: compact ? 20 : 40 },
+      loginHead: { margin: 0, fontSize: mobile ? 24 : 32, lineHeight: 1.45, fontWeight: 700, textWrap: 'pretty' },
+      shell: compact ? { minHeight: '100vh' } : { minHeight: '100vh', display: 'grid', gridTemplateColumns: '232px minmax(0,1fr)' },
+      aside: compact
+        ? { position: 'fixed', top: 0, left: 0, bottom: 0, width: 280, maxWidth: '85vw', zIndex: 50, background: '#fff', padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto',
+            transform: s.drawerOpen ? 'none' : 'translateX(-100%)', visibility: s.drawerOpen ? 'visible' : 'hidden',
+            transition: 'transform .22s ease, visibility .22s', boxShadow: s.drawerOpen ? '0 12px 40px rgba(0,0,0,.18)' : 'none' }
+        : { background: '#fff', borderRight: '1px solid #E4E2DC', padding: '24px 16px', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh' },
+      main: { minWidth: 0, padding: mobile ? '20px 16px 48px' : compact ? '28px 24px 56px' : '36px 40px 64px' },
+    };
+    const app = {
+      bp, store, route: s.route, params: s.params, role, api: this.api,
+      nav: this.nav, toast: this.toast, confirm: this.confirm, update: this.update, runCollect: this.runCollect,
+    };
+    const tbd = (what) => (e) => { e.preventDefault(); this.toast(`[확인 필요] ${what} — 연결 화면이 정의되지 않았습니다`); };
+    return {
+      showBoot: s.booting,
+      showLogin: !s.booting && !s.authed,
+      showApp: !s.booting && s.authed,
+      email: s.email, password: s.password, keep: s.keep, loginError: s.loginError, loggingIn: s.loggingIn,
+      emailErr: s.fieldErr.email || '', pwErr: s.fieldErr.password || '',
+      emailInvalid: s.fieldErr.email ? 'true' : 'false', pwInvalid: s.fieldErr.password ? 'true' : 'false',
+      loginLabel: s.loggingIn ? '로그인 중…' : '로그인',
+      onEmail: (e) => this.setState({ email: e.target.value }),
+      onPassword: (e) => this.setState({ password: e.target.value }),
+      onKeep: (e) => this.setState({ keep: e.target.checked }),
+      onLogin: this.handleLogin,
+      onFindPw: tbd('비밀번호 찾기'), onSignup: tbd('회원가입 (가입 방식 [정책 필요])'), onInquiry: tbd('도입 문의 채널'),
+      navItems, adminNav: { current: adminOn ? 'page' : undefined, style: navStyle(adminOn) },
+      roleLabel: role, view, app, lay, compact, showLoginImage: !mobile,
+      drawerOpen: compact && s.drawerOpen, drawerAttr: s.drawerOpen ? 'true' : 'false',
+      onOpenDrawer: () => this.setState({ drawerOpen: true }), onCloseDrawer: this.closeDrawer,
+      onRetry: () => { this.setState({ routeLoading: true }); setTimeout(() => this.setState({ routeLoading: false }), 500); },
+      toast: s.toast,
+      modal: s.modal, okRef: this.okRef,
+      stop: (e) => e.stopPropagation(),
+      onModalBackdrop: () => this.setState({ modal: null }),
+      onModalCancel: () => this.setState({ modal: null }),
+      onModalOk: () => { const m = s.modal; this.setState({ modal: null }); m && m.onOk && m.onOk(); },
+    };
+  }
+}
+</script>
+</body>
+</html>

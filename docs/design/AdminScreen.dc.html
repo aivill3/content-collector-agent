@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="ADMIN-001 관리자" data-screen-id="ADMIN-001" style="display:flex;flex-direction:column;gap:24px">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1 style="margin:0;font-size:28px;font-weight:700">관리자</h1>
+    <p style="margin:0;color:#6B6A66">서비스 전체 사용량과 시스템 기본값을 관리합니다</p>
+  </header>
+
+  <section data-ui-id="ADMIN-001-U01" data-func-id="FN-ADM-001" aria-label="요약" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:24px">
+    <sc-for list="{{ cards }}" as="c" hint-placeholder-count="4">
+      <div style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:13px;color:#4A4945">{{ c.label }}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600">{{ c.value }}</span>
+        <span style="font-size:13px;color:#6B6A66">{{ c.sub }}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:24px;align-items:start">
+    <section data-ui-id="ADMIN-001-U02" data-func-id="FN-ADM-002" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">전체 사용 현황</h2>
+      <!-- 워크스페이스·요금제 개념 [정책 필요] / 관리자의 개별 유저 데이터 열람 범위 [정책 필요] -->
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:560px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">유저</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">요금제</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">소스</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">키워드</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">30일 수집</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">최근 접속</th>
+        </tr></thead>
+        <tbody><sc-for list="{{ usage }}" as="u" hint-placeholder-count="4"><tr>
+          <td style="padding:13px 0;border-bottom:1px solid #E8E6E0">{{ u.user }}</td>
+          <td style="padding:13px 0;border-bottom:1px solid #E8E6E0"><span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:12px;font-weight:600">{{ u.plan }}</span></td>
+          <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ u.src }}</td>
+          <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ u.kw }}</td>
+          <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ u.n30 }}건</td>
+          <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ u.last }}</td>
+        </tr></sc-for></tbody>
+      </table></div>
+    </section>
+    <section data-ui-id="ADMIN-001-U03" data-func-id="FN-ADM-003" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column">
+      <h2 style="margin:0 0 8px;font-size:16px;font-weight:700">작업 큐</h2>
+      <sc-for list="{{ queue }}" as="q" hint-placeholder-count="5">
+        <div style="display:flex;justify-content:space-between;padding:15px 0;border-bottom:1px solid #E8E6E0"><span>{{ q.k }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{ q.v }}</span></div>
+      </sc-for>
+    </section>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:24px;align-items:start">
+    <section data-ui-id="ADMIN-001-U04" data-func-id="FN-ADM-004" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">전체 핵심어 집계</h2>
+      <p style="margin:0;font-size:13px;color:#6B6A66">모든 유저 수집분 합산 · 유저를 식별하지 않음</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0;width:36px">#</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">단어</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">등장 글</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">평균 밀도</th>
+        </tr></thead>
+        <tbody><sc-for list="{{ core }}" as="c" hint-placeholder-count="6"><tr>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-size:13px">{{ c.i }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ c.w }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ c.docs }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ c.d }}</td>
+        </tr></sc-for></tbody>
+      </table>
+    </section>
+    <section data-ui-id="ADMIN-001-U05" data-func-id="FN-ADM-005" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">등록 키워드 현황</h2>
+      <!-- 공유 호출 정책 [정책 필요] -->
+      <p style="margin:0;font-size:13px;color:#6B6A66">등록한 유저 수만 표시 · 2명 이상이면 네이버 API를 한 번만 호출해 공유</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">키워드</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">등록</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">호출 방식</th>
+        </tr></thead>
+        <tbody><sc-for list="{{ keywords }}" as="k" hint-placeholder-count="4"><tr>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ k.kw }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ k.n }}명</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">
+            <sc-if value="{{ k.shared }}" hint-placeholder-val="{{ false }}"><span style="padding:2px 10px;border-radius:999px;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700">API 공유 호출</span></sc-if>
+            <sc-if value="{{ k.single }}" hint-placeholder-val="{{ true }}"><span style="color:#6B6A66">—</span></sc-if>
+          </td>
+        </tr></sc-for></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:24px;align-items:start">
+    <section data-ui-id="ADMIN-001-U06" data-func-id="FN-ADM-006" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <h2 style="margin:0;font-size:16px;font-weight:700">시스템 기본값 · 허용 범위</h2>
+        <sc-if value="{{ viewMode }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ onEdit }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">편집</button></sc-if>
+        <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px">
+            <button type="button" onClick="{{ onCancelEdit }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">취소</button>
+            <button type="button" onClick="{{ onSaveEdit }}" disabled="{{ saveDisabled }}" style="height:36px;padding:0 14px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">{{ saveLabel }}</button>
+          </div>
+        </sc-if>
+      </div>
+      <p style="margin:0;font-size:13px;color:#6B6A66">유저는 허용 범위 안에서만 값을 바꿀 수 있습니다</p>
+      <!-- 편집 UI 미정 [확인 필요] — 표 안 입력으로 구현. 분모·품사·최소 본문 길이 등 다른 항목 관리 여부 [확인 필요] -->
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">항목</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">기본값</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">최소</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">최대</th>
+        </tr></thead>
+        <tbody><sc-for list="{{ defRows }}" as="r" hint-placeholder-count="7"><tr>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ r.label }}<span style="display:block;font-size:12px;color:#A4470F">{{ r.err }}</span></td>
+          <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="3">
+            <td style="padding:12px 8px 12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">
+              <sc-if value="{{ c.read }}" hint-placeholder-val="{{ true }}">{{ c.text }}</sc-if>
+              <sc-if value="{{ c.edit }}" hint-placeholder-val="{{ false }}"><input inputmode="decimal" aria-label="{{ c.aria }}" value="{{ c.value }}" onChange="{{ c.onChange }}" style="width:80px;height:32px;padding:0 8px;border:1px solid #D9D7D0;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none"></sc-if>
+            </td>
+          </sc-for>
+        </tr></sc-for></tbody>
+      </table>
+    </section>
+    <section data-ui-id="ADMIN-001-U07" data-func-id="FN-ADM-007" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">공통 불용어</h2>
+      <p style="margin:0;font-size:13px;color:#6B6A66">모든 유저에게 기본 적용</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+          <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 12px;border-radius:999px;background:#EBE9E4;font-size:13px">{{ c.word }}<button type="button" onClick="{{ c.onRemove }}" aria-label="{{ c.aria }}" style="width:22px;height:22px;border:none;border-radius:50%;background:transparent;color:#4A4945;cursor:pointer;font-size:14px;line-height:1" style-hover="background:#DAD8D2">×</button></span>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input aria-label="공통 불용어 입력" placeholder="단어 입력" value="{{ word }}" onChange="{{ onWord }}" onKeyDown="{{ onWordKey }}" style="flex:1;min-width:0;height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;outline:none" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+        <button type="button" onClick="{{ onAddWord }}" style="height:40px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">추가</button>
+      </div>
+      <span style="font-size:12px;color:#A4470F">{{ wordErr }}</span>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const pad = (n) => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const fmt = (r, v) => { const n = Number(v); const t = r.dec ? n.toFixed(r.dec) : n.toLocaleString(); return t + (r.unit || ''); };
+
+class Component extends DCLogic {
+  state = { editing: false, draft: null, saving: false, word: '', wordErr: '' };
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const a = st.admin;
+    const s = this.state;
+    const rows = s.editing ? s.draft : st.adminDefaults;
+    const errs = {};
+    if (s.editing) rows.forEach((r) => {
+      const [d, mn, mx] = [Number(r.def), Number(r.min), Number(r.max)];
+      if ([d, mn, mx].some((v) => Number.isNaN(v) || String(v) === '')) errs[r.key] = '숫자를 입력하세요';
+      else if (!(mn <= d && d <= mx)) errs[r.key] = '최소 ≤ 기본값 ≤ 최대 [추정]';
+    });
+    const setCell = (key, field, v) => this.setState({ draft: s.draft.map((r) => (r.key === key ? { ...r, [field]: v } : r)) });
+    const sys = st.stopwords.filter((x) => x.origin === '시스템 공통');
+    const addWord = () => {
+      const w = s.word.trim();
+      if (!w) return this.setState({ wordErr: '단어를 입력하세요 [문구 확인 필요]' });
+      if (st.stopwords.some((x) => x.word === w)) return this.setState({ wordErr: '이미 등록된 단어입니다 [추정]' });
+      // SETTING-002의 '시스템 공통' 출처와 연동 [추정]
+      app.update((d) => ({ ...d, stopwords: [{ id: 'D' + Date.now().toString(36), word: w, origin: '시스템 공통', target: 'default', added: today(), on: true }, ...d.stopwords] }));
+      this.setState({ word: '', wordErr: '' });
+      app.toast(`공통 불용어 '${w}'을(를) 추가했습니다`);
+    };
+    return {
+      cards: [
+        { label: '가입 유저', value: a.users, sub: `이번 달 신규 ${a.newThisMonth}` },
+        { label: '활성 유저 (7일)', value: a.active7, sub: `전체의 ${Math.round((a.active7 / a.users) * 100)}%` }, // 활성 유저 정의 [정책 필요]
+        { label: '네이버 API 오늘 호출', value: a.apiToday.toLocaleString(), sub: `일일 한도 ${a.apiLimit.toLocaleString()} 대비 ${Math.round((a.apiToday / a.apiLimit) * 100)}%` },
+        { label: '작업 큐 대기', value: `${a.queueWait}건`, sub: `평균 대기 ${a.avgWait}초` },
+      ],
+      usage: a.usage,
+      queue: [['대기', `${a.queue.waiting}건`], ['실행 중', `${a.queue.running}건`], ['평균 대기 시간', `${a.queue.avgWait}초`], ['워커 수', a.queue.workers], ['최근 1시간 실패', `${a.queue.fail1h}건`]].map(([k, v]) => ({ k, v })),
+      core: a.core.map((c, i) => ({ i: i + 1, w: c.w, docs: c.docs, d: `${c.d.toFixed(1)}%` })),
+      keywords: a.keywords.map((k) => ({ kw: k.kw, n: k.n, shared: k.n >= 2, single: k.n < 2 })),
+      viewMode: !s.editing, editing: s.editing,
+      defRows: rows.map((r) => ({
+        label: r.label, err: errs[r.key] || '',
+        cells: ['def', 'min', 'max'].map((f) => ({ read: !s.editing, edit: s.editing, text: fmt(r, r[f]), value: String(r[f]), aria: `${r.label} ${f === 'def' ? '기본값' : f === 'min' ? '최소' : '최대'}`, onChange: (e) => setCell(r.key, f, e.target.value) })),
+      })),
+      onEdit: () => this.setState({ editing: true, draft: st.adminDefaults.map((r) => ({ ...r })) }),
+      onCancelEdit: () => this.setState({ editing: false, draft: null }),
+      saveDisabled: Object.keys(errs).length > 0 || s.saving, saveLabel: s.saving ? '저장 중…' : '저장',
+      // FUNC: FN-ADM-006 — 신규 유저·미설정 유저 적용 범위 [확인 필요]
+      onSaveEdit: async () => {
+        this.setState({ saving: true });
+        const next = await app.api.saveAdminDefaults(s.draft.map((r) => ({ ...r, def: Number(r.def), min: Number(r.min), max: Number(r.max) })));
+        app.update((d) => ({ ...d, adminDefaults: next }));
+        this.setState({ saving: false, editing: false, draft: null });
+        app.toast('시스템 기본값을 저장했습니다');
+      },
+      chips: sys.map((x) => ({ word: x.word, aria: `${x.word} 삭제`, onRemove: () => { app.update((d) => ({ ...d, stopwords: d.stopwords.filter((y) => y.id !== x.id) })); app.toast(`공통 불용어 '${x.word}'을(를) 삭제했습니다`); } })),
+      word: s.word, wordErr: s.wordErr,
+      onWord: (e) => this.setState({ word: e.target.value, wordErr: '' }), onWordKey: (e) => { if (e.key === 'Enter') { e.preventDefault(); addWord(); } }, onAddWord: addWord,
+    };
+  }
+}
+</script>
+</body>
+</html>

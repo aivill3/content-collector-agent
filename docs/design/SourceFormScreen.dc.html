@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="SOURCE-002~005 소스 추가" data-screen-id="{{ screenId }}" style="display:flex;flex-direction:column;gap:20px">
+  <!-- [확인 필요] 편집 모드 제목 — 와이어프레임에 없어 추가 화면과 동일하게 표시 -->
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1 style="margin:0;font-size:28px;font-weight:700">{{ title }}</h1>
+    <p style="margin:0;color:#6B6A66">{{ desc }}</p>
+  </header>
+
+  <!-- 1 기본 정보 -->
+  <sc-if value="{{ show.basicFull }}" hint-placeholder-val="{{ true }}">
+    <section style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">1</span><h2 style="margin:0;font-size:16px;font-weight:700">기본 정보</h2>
+        <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ toggleBasic }}" style="margin-left:auto;background:none;border:none;color:#2A5599;font-size:14px;font-weight:700;cursor:pointer">접기</button></sc-if>
+      </div>
+      <div data-ui-id="{{ ui.typeCards }}" role="radiogroup" aria-label="소스 유형" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <sc-for list="{{ typeCards }}" as="t" hint-placeholder-count="3">
+          <button type="button" role="radio" aria-checked="{{ t.checked }}" onClick="{{ t.onClick }}" disabled="{{ t.locked }}" style="{{ t.style }}">
+            <span style="{{ t.titleStyle }}">{{ t.label }}</span>
+            <span style="font-size:13px;color:#6B6A66;font-weight:400">{{ t.desc }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">소스 이름
+        <input data-ui-id="{{ ui.name }}" value="{{ f.name }}" onChange="{{ on.name }}" placeholder="{{ namePh }}" aria-invalid="{{ errFlag.name }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+        <span style="font-size:12px;color:#A4470F;font-weight:400">{{ err.name }}</span>
+      </label>
+      <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ false }}">
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">게시판 목록 URL
+          <input data-ui-id="SOURCE-003-U03" type="url" value="{{ f.boardUrl }}" onChange="{{ on.boardUrl }}" placeholder="https://[사이트]/bbs/board.php?bo_table=notice" aria-invalid="{{ errFlag.boardUrl }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">게시글 목록이 보이는 페이지 주소</span>
+          <span style="font-size:12px;color:#A4470F;font-weight:400">{{ err.boardUrl }}</span>
+        </label>
+      </sc-if>
+    </section>
+  </sc-if>
+  <sc-if value="{{ show.basicSummary }}" hint-placeholder-val="{{ false }}">
+    <section data-ui-id="SOURCE-004-U01" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <span style="width:26px;height:26px;border-radius:50%;background:#E2F0E3;color:#2E6B3A;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">1</span>
+      <h2 style="margin:0;font-size:16px;font-weight:700">기본 정보</h2>
+      <span style="font-size:13px;color:#4A4945;flex:1;min-width:200px">{{ summary.basic }}</span>
+      <button type="button" onClick="{{ toggleBasic }}" aria-expanded="false" style="background:none;border:none;color:#2A5599;font-size:14px;font-weight:700;cursor:pointer">펼치기</button>
+    </section>
+  </sc-if>
+
+  <!-- SOURCE-002 · 2 검색 키워드 / 3 검색 옵션 -->
+  <sc-if value="{{ isNews }}" hint-placeholder-val="{{ false }}">
+    <section data-func-id="FN-SRC-002" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">2</span><h2 style="margin:0;font-size:16px;font-weight:700">검색 키워드</h2></div>
+      <label for="kw-input" style="font-size:13px;font-weight:600">키워드 추가</label>
+      <div data-ui-id="SOURCE-002-U03" style="display:flex;gap:12px">
+        <input id="kw-input" value="{{ f.kwInput }}" onChange="{{ on.kwInput }}" onKeyDown="{{ on.kwKey }}" aria-invalid="{{ errFlag.keywords }}" style="flex:1;height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;outline:none;min-width:0" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+        <button type="button" onClick="{{ on.addKw }}" style="height:40px;padding:0 18px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">추가</button>
+      </div>
+      <span style="font-size:12px;color:#A4470F">{{ err.keywords }}</span>
+      <p data-ui-id="SOURCE-002-U04" style="margin:0;font-size:13px;color:#6B6A66">키워드마다 네이버 뉴스를 따로 검색합니다. 같은 기사가 여러 키워드에 걸리면 한 번만 저장합니다</p>
+      <table data-ui-id="SOURCE-002-U05" style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0;width:50%">키워드</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">출처</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">추가일</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">최근 수집</th>
+          <th scope="col" style="border-bottom:1px solid #E8E6E0"></th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ kwRows }}" as="k" hint-placeholder-count="2">
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-weight:700">{{ k.kw }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="{{ k.origin.style }}">{{ k.origin.label }}</span></td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ k.added }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ k.recent }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;text-align:right"><button type="button" onClick="{{ k.onDelete }}" aria-label="{{ k.aria }}" style="height:36px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">삭제</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <sc-if value="{{ noKw }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:13px;color:#6B6A66;text-align:center;padding:8px 0">추가된 키워드가 없습니다 [문구 확인 필요]</p></sc-if>
+      <p style="margin:0;font-size:13px;color:#6B6A66">출처가 '키워드 분석 연관어'인 항목은 키워드 분석 화면의 연관어에서 추가한 키워드입니다</p>
+    </section>
+
+    <section data-func-id="FN-SRC-008" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">3</span><h2 style="margin:0;font-size:16px;font-weight:700">검색 옵션</h2></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">키워드당 검색 건수
+          <input data-ui-id="SOURCE-002-U06" type="number" min="1" max="1000" value="{{ f.count }}" onChange="{{ on.count }}" aria-invalid="{{ errFlag.count }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">최대 1,000건</span>
+          <span style="font-size:12px;color:#A4470F;font-weight:400">{{ err.count }}</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">정렬
+          <select data-ui-id="SOURCE-002-U07" value="{{ f.sort }}" onChange="{{ on.sort }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="sim">관련도순</option><option value="date">최신순</option></select>
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">관련도순 · 최신순</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">조회 기간
+          <!-- [확인 필요] 선택지 -->
+          <select data-ui-id="SOURCE-002-U08" value="{{ f.period }}" onChange="{{ on.period }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="1d">최근 1일</option><option value="3d">최근 3일</option><option value="7d">최근 7일</option><option value="none">제한 없음</option></select>
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">발행일 기준</span>
+        </label>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer"><input data-ui-id="SOURCE-002-U09" type="checkbox" checked="{{ f.nonKorean }}" onChange="{{ on.nonKorean }}" style="width:18px;height:18px;margin:0;accent-color:#2A5599">비한국어 기사도 수집</label>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button type="button" data-ui-id="SOURCE-002-U10" data-func-id="FN-SRC-003" onClick="{{ on.searchTest }}" disabled="{{ ui.searching }}" style="height:44px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ searchLabel }}</button>
+        <span style="font-size:13px;color:#6B6A66">저장 전에 첫 키워드로 실제 검색 결과 5건을 미리 봅니다</span>
+      </div>
+      <span style="font-size:12px;color:#A4470F">{{ err.search }}</span>
+      <sc-if value="{{ searchRows }}" hint-placeholder-val="{{ false }}">
+        <table data-ui-id="SOURCE-002-U11" style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0;width:55%">검색 결과 미리보기</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">언론사</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">발행일</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">키워드</th>
+          </tr></thead>
+          <tbody><sc-for list="{{ searchRows }}" as="r" hint-placeholder-count="5"><tr>
+            <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ r.title }}</td>
+            <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ r.outlet }}</td>
+            <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.date }}</td>
+            <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ r.kw }}</td>
+          </tr></sc-for></tbody>
+        </table>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <!-- SOURCE-003/004 · 2 목록 탐지 -->
+  <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ false }}">
+    <section style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">2</span><h2 style="margin:0;font-size:16px;font-weight:700">목록 탐지</h2></div>
+      <div data-ui-id="SOURCE-003-U04" role="tablist" aria-label="탐지 방식" style="display:flex;gap:24px;border-bottom:1px solid #E4E2DC">
+        <sc-for list="{{ detectTabs }}" as="t" hint-placeholder-count="2">
+          <button type="button" role="tab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ isAuto }}" hint-placeholder-val="{{ false }}">
+        <div data-func-id="FN-SRC-004" style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button type="button" data-ui-id="SOURCE-003-U05" onClick="{{ on.detect }}" disabled="{{ ui.detecting }}" style="height:44px;padding:0 16px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">{{ detectLabel }}</button>
+            <sc-if value="{{ detect }}" hint-placeholder-val="{{ false }}">
+              <span data-ui-id="SOURCE-003-U06" style="display:flex;gap:10px;align-items:center;font-size:13px;color:#4A4945"><span style="padding:2px 10px;border-radius:999px;background:#E2F0E3;color:#2E6B3A;font-size:12px;font-weight:600">robots.txt 허용</span>목록 페이지 응답 정상</span>
+            </sc-if>
+            <sc-if value="{{ noDetect }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:#6B6A66">목록 URL을 넣고 탐지를 실행하세요 [문구 확인 필요]</span></sc-if>
+          </div>
+          <span style="font-size:12px;color:#A4470F">{{ err.detect }}</span>
+          <sc-if value="{{ detect }}" hint-placeholder-val="{{ false }}">
+            <div data-ui-id="SOURCE-003-U07" data-func-id="FN-SRC-005" role="radiogroup" aria-labelledby="cand-label" style="display:flex;flex-direction:column;gap:8px">
+              <span id="cand-label" style="font-size:13px;font-weight:600">후보 묶음 — 글 번호만 다른 링크가 많이 반복된 순서</span>
+              <sc-for list="{{ candRows }}" as="c" hint-placeholder-count="3">
+                <label style="{{ c.style }}">
+                  <input type="radio" name="cand" checked="{{ c.checked }}" onChange="{{ c.onPick }}" style="margin:0;accent-color:#2A5599">
+                  <span style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.pattern }}</span>
+                  <span style="font-size:12px;color:#4A4945">{{ c.links }}개 링크</span>
+                  <sc-if value="{{ c.adopted }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#2A5599;font-weight:700">채택</span></sc-if>
+                </label>
+              </sc-for>
+            </div>
+            <table data-ui-id="SOURCE-003-U08" style="width:100%;border-collapse:collapse;font-size:14px">
+              <thead><tr>
+                <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0;width:62%">채택 묶음으로 찾은 글 (미리보기)</th>
+                <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">날짜</th>
+                <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">URL</th>
+              </tr></thead>
+              <tbody><sc-for list="{{ boardPosts }}" as="p" hint-placeholder-count="4"><tr>
+                <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ p.title }}</td>
+                <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ p.date }}</td>
+                <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ p.url }}</td>
+              </tr></sc-for></tbody>
+            </table>
+            <p data-ui-id="SOURCE-003-U09" style="margin:0;font-size:13px;color:#6B6A66">결과가 이상하면 다른 후보를 고르거나 '수동 설정' 탭에서 페이지를 보며 직접 선택합니다</p>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}">
+        <div data-func-id="FN-SRC-006" style="display:flex;flex-direction:column;gap:16px">
+          <p data-ui-id="SOURCE-004-U03" style="margin:0;font-size:13px;color:#4A4945">사이트 화면을 그대로 불러옵니다. 오른쪽 순서대로 원하는 부분을 클릭하면 같은 모양의 다른 글도 함께 잡힙니다</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:20px;align-items:start">
+            <!-- [확인 필요] 대상 사이트 렌더링 방식 — MOCK 미리보기 -->
+            <div data-ui-id="SOURCE-004-U04" style="border:1px solid #E4E2DC;border-radius:10px;overflow:hidden;background:#fff">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#EFEEEA;border-bottom:1px solid #E4E2DC;flex-wrap:wrap">
+                <div role="tablist" aria-label="미리보기 페이지" style="display:flex;gap:2px">
+                  <sc-for list="{{ pageSegs }}" as="g" hint-placeholder-count="2"><button type="button" role="tab" aria-selected="{{ g.selected }}" onClick="{{ g.onClick }}" style="{{ g.style }}">{{ g.label }}</button></sc-for>
+                </div>
+                <span style="flex:1;min-width:120px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#4A4945;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ previewUrl }}</span>
+                <button type="button" onClick="{{ on.previewRefresh }}" style="height:34px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer">새로고침</button>
+              </div>
+              <sc-if value="{{ isListPage }}" hint-placeholder-val="{{ true }}">
+                <div data-ui-id="SOURCE-004-U05" style="padding:20px">
+                  <div style="height:34px;border-radius:6px;background:#EBE9E4;margin-bottom:14px"></div>
+                  <div style="width:140px;height:14px;border-radius:6px;background:#EBE9E4;margin-bottom:12px"></div>
+                  <div style="border-top:2px solid #9C9A93;display:flex;flex-direction:column;gap:4px;padding-top:6px">
+                    <sc-for list="{{ previewRows }}" as="r" hint-placeholder-count="6">
+                      <div onClick="{{ r.onRow }}" style="{{ r.style }}">
+                        <sc-if value="{{ r.rowLabel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:6px;top:-11px;padding:1px 8px;border-radius:4px;background:#2A5599;color:#fff;font-size:11px;font-weight:700">목록 한 줄</span></sc-if>
+                        <span style="width:56px;font-size:12px;color:#4A4945">{{ r.no }}</span>
+                        <span style="flex:1;display:flex;align-items:center;gap:6px;min-width:0">
+                          <span onClick="{{ r.onTitle }}" style="{{ r.titleStyle }}">[게시글 제목]</span>
+                          <sc-if value="{{ r.linkHint }}" hint-placeholder-val="{{ false }}"><span style="padding:1px 8px;border-radius:4px;background:#A4470F;color:#fff;font-size:11px;font-weight:700">글 링크?</span></sc-if>
+                        </span>
+                        <span style="width:70px;font-size:12px;color:#4A4945">[작성자]</span>
+                        <span onClick="{{ r.onDate }}" style="{{ r.dateStyle }}">[MM-DD]</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;justify-content:center;gap:6px;margin-top:16px">
+                    <span style="width:30px;height:30px;border:1px solid #D9D7D0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">1</span>
+                    <span style="width:30px;height:30px;border:1px solid #D9D7D0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">2</span>
+                    <span style="width:30px;height:30px;border:1px solid #D9D7D0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">3</span>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isPostPage }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+                  <div style="width:60%;height:22px;border-radius:6px;background:#E4E2DC"></div>
+                  <div style="width:30%;height:12px;border-radius:6px;background:#EBE9E4"></div>
+                  <div onClick="{{ on.pickBody }}" style="{{ bodyBlockStyle }}">
+                    <div style="height:10px;border-radius:5px;background:#E4E2DC"></div>
+                    <div style="height:10px;border-radius:5px;background:#E4E2DC;width:94%"></div>
+                    <div style="height:10px;border-radius:5px;background:#E4E2DC;width:88%"></div>
+                    <div style="height:10px;border-radius:5px;background:#E4E2DC;width:70%"></div>
+                    <sc-if value="{{ bodyLabel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:8px;top:-11px;padding:1px 8px;border-radius:4px;background:#2A5599;color:#fff;font-size:11px;font-weight:700">본문 영역</span></sc-if>
+                  </div>
+                  <div style="width:40%;height:12px;border-radius:6px;background:#EBE9E4"></div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div data-ui-id="SOURCE-004-U06" role="status" style="padding:12px 14px;border-radius:8px;background:#E6ECF5;color:#2A5599;font-size:14px;font-weight:600">{{ instruction }}</div>
+              <div data-ui-id="SOURCE-004-U07" style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ stepCards }}" as="s" hint-placeholder-count="5">
+                  <div style="{{ s.style }}">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="width:22px;height:22px;border-radius:50%;background:#EBE9E4;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ s.n }}</span>
+                      <strong style="font-size:14px;flex:1">{{ s.title }}</strong>
+                      <span style="{{ s.stateStyle }}">{{ s.stateLabel }}</span>
+                    </div>
+                    <p style="margin:0 0 0 32px;font-size:13px;color:#4A4945;line-height:1.55">{{ s.desc }}</p>
+                    <div style="display:flex;gap:8px;margin-left:32px;flex-wrap:wrap">
+                      <sc-for list="{{ s.actions }}" as="a" hint-placeholder-count="1">
+                        <button type="button" onClick="{{ a.onClick }}" disabled="{{ a.disabled }}" style="height:34px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer">{{ a.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <details data-ui-id="SOURCE-004-U08" style="border:1px solid #E4E2DC;border-radius:10px;padding:12px 14px;background:#fff">
+                <summary style="cursor:pointer;font-size:13px;font-weight:600">고급: 선택된 값(선택자) 보기·직접 수정</summary>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600">목록 한 줄
+                    <input value="{{ sel.row }}" onChange="{{ on.selRow }}" placeholder="(선택 전)" style="height:36px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none">
+                  </label>
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600">글 링크
+                    <input value="{{ sel.link }}" onChange="{{ on.selLink }}" placeholder="(선택 중)" style="height:36px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none">
+                  </label>
+                </div>
+              </details>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <strong style="font-size:13px">추출 결과 미리보기 — 지금 선택으로 가져올 글</strong>
+            <table data-ui-id="SOURCE-004-U09" style="width:100%;border-collapse:collapse;font-size:14px">
+              <thead><tr>
+                <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0;width:62%">제목</th>
+                <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">날짜</th>
+                <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">URL</th>
+              </tr></thead>
+              <tbody><sc-for list="{{ extractRows }}" as="p" hint-placeholder-count="4"><tr>
+                <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ p.title }}</td>
+                <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ p.date }}</td>
+                <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ p.url }}</td>
+              </tr></sc-for></tbody>
+            </table>
+            <sc-if value="{{ noExtract }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:13px;color:#6B6A66;padding:8px 0">글 링크를 선택하면 가져올 글이 표시됩니다 [추정]</p></sc-if>
+          </div>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <!-- SOURCE-003 · 3 수집 범위 -->
+  <sc-if value="{{ show.scope }}" hint-placeholder-val="{{ false }}">
+    <section data-func-id="FN-SRC-008" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">3</span><h2 style="margin:0;font-size:16px;font-weight:700">수집 범위</h2>
+        <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ toggleScope }}" style="margin-left:auto;background:none;border:none;color:#2A5599;font-size:14px;font-weight:700;cursor:pointer">접기</button></sc-if>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">페이지 파라미터
+          <input data-ui-id="SOURCE-003-U10" value="{{ f.pageParam }}" onChange="{{ on.pageParam }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599">
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">주소에서 페이지 번호 이름 (…&amp;page=2)</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">페이지 수
+          <!-- 상한 [정책 필요] -->
+          <input data-ui-id="SOURCE-003-U11" type="number" min="1" value="{{ f.pages }}" onChange="{{ on.pages }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599">
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">목록 1쪽, 2쪽… 몇 쪽까지 볼지</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">최대 글 수
+          <input data-ui-id="SOURCE-003-U12" type="number" min="1" value="{{ f.maxPosts }}" onChange="{{ on.maxPosts }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599">
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">한 번에 가져올 글 개수 상한</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">포함 URL 패턴 (선택)
+          <!-- [확인 필요] 정규식 여부 -->
+          <input data-ui-id="SOURCE-003-U13" value="{{ f.urlPattern }}" onChange="{{ on.urlPattern }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">최소 본문 길이
+          <input data-ui-id="SOURCE-003-U14" type="number" min="0" value="{{ f.minLen }}" onChange="{{ on.minLen }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599">
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">자</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">조회 기간
+          <select data-ui-id="SOURCE-003-U15" value="{{ f.boardPeriod }}" onChange="{{ on.boardPeriod }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="none">제한 없음</option><option value="7d">최근 7일</option><option value="30d">최근 30일</option></select>
+        </label>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:4px;cursor:pointer">
+        <span style="display:flex;align-items:center;gap:8px;font-size:14px"><input data-ui-id="SOURCE-003-U16" type="checkbox" checked="{{ f.skipNotice }}" onChange="{{ on.skipNotice }}" style="width:18px;height:18px;margin:0;accent-color:#2A5599">'공지' 줄 제외</span>
+        <span style="font-size:12px;color:#6B6A66;margin-left:26px">상단 고정 공지가 매번 수집되는 것을 막습니다</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer"><input data-ui-id="SOURCE-003-U17" type="checkbox" checked="{{ f.nonKorean }}" onChange="{{ on.nonKorean }}" style="width:18px;height:18px;margin:0;accent-color:#2A5599">비한국어 글도 수집</label>
+    </section>
+  </sc-if>
+  <sc-if value="{{ show.scopeSummary }}" hint-placeholder-val="{{ false }}">
+    <section data-ui-id="SOURCE-004-U10" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <span style="width:26px;height:26px;border-radius:50%;background:#E2F0E3;color:#2E6B3A;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">3</span>
+      <h2 style="margin:0;font-size:16px;font-weight:700">수집 범위</h2>
+      <span style="font-size:13px;color:#4A4945;flex:1;min-width:200px">{{ summary.scope }}</span>
+      <button type="button" onClick="{{ toggleScope }}" aria-expanded="false" style="background:none;border:none;color:#2A5599;font-size:14px;font-weight:700;cursor:pointer">펼치기</button>
+    </section>
+  </sc-if>
+
+  <!-- SOURCE-005 · 2 글 주소 / 3 옵션 / 4 분석 설정 -->
+  <sc-if value="{{ isUrl }}" hint-placeholder-val="{{ false }}">
+    <section data-func-id="FN-SRC-007" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">2</span><h2 style="margin:0;font-size:16px;font-weight:700">글 주소</h2></div>
+      <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">주소 목록
+        <textarea data-ui-id="SOURCE-005-U03" rows="5" value="{{ f.urls }}" onChange="{{ on.urls }}" aria-invalid="{{ errFlag.urls }}" placeholder="https://[사이트]/[글 주소 1]" style="padding:12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:400;line-height:1.5;outline:none;resize:vertical;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)"></textarea>
+        <span style="font-size:12px;color:#6B6A66;font-weight:400">한 줄에 하나씩 · {{ urlStat.count }}개 입력됨 · 중복 {{ urlStat.dup }}개 제외</span>
+        <span style="font-size:12px;color:#A4470F;font-weight:400">{{ err.urls }}</span>
+      </label>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button type="button" data-ui-id="SOURCE-005-U04" onClick="{{ on.checkUrls }}" disabled="{{ ui.checking }}" style="height:44px;padding:0 16px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">{{ checkLabel }}</button>
+        <span style="font-size:13px;color:#6B6A66">각 주소에 접속해 본문을 가져올 수 있는지 미리 확인합니다</span>
+      </div>
+      <sc-if value="{{ urlRows }}" hint-placeholder-val="{{ false }}">
+        <table data-ui-id="SOURCE-005-U05" style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0;width:58%">주소</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">확인 결과</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">본문</th>
+          </tr></thead>
+          <tbody><sc-for list="{{ urlRows }}" as="u" hint-placeholder-count="4"><tr>
+            <td style="padding:12px 12px 12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px;word-break:break-all">{{ u.url }}</td>
+            <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="{{ u.badge.style }}">{{ u.badge.label }}</span></td>
+            <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ u.text }}</td>
+          </tr></sc-for></tbody>
+        </table>
+        <div data-ui-id="SOURCE-005-U06" style="background:#EBE9E4;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px">
+          <strong style="font-size:13px">첫 번째 글 본문 미리보기</strong>
+          <strong style="font-size:15px">[글 제목]</strong>
+          <span style="font-size:13px;color:#6B6A66">[사이트명] · [발행일]</span>
+          <div style="height:9px;border-radius:5px;background:#DAD7D0"></div>
+          <div style="height:9px;border-radius:5px;background:#DAD7D0;width:94%"></div>
+          <div style="height:9px;border-radius:5px;background:#DAD7D0;width:97%"></div>
+          <div style="height:9px;border-radius:5px;background:#DAD7D0;width:70%"></div>
+        </div>
+      </sc-if>
+    </section>
+    <section style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">3</span><h2 style="margin:0;font-size:16px;font-weight:700">옵션</h2></div>
+      <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;max-width:350px">최소 본문 길이
+        <input data-ui-id="SOURCE-005-U07" type="number" min="0" value="{{ f.minLen }}" onChange="{{ on.minLen }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599">
+        <span style="font-size:12px;color:#6B6A66;font-weight:400">자</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer"><input data-ui-id="SOURCE-005-U08" type="checkbox" checked="{{ f.nonKorean }}" onChange="{{ on.nonKorean }}" style="width:18px;height:18px;margin:0;accent-color:#2A5599">비한국어 글도 수집</label>
+    </section>
+    <section style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">4</span><h2 style="margin:0;font-size:16px;font-weight:700">분석 설정</h2></div>
+      <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;max-width:530px">분석 설정
+        <select data-ui-id="SOURCE-005-U09" value="{{ f.analysis }}" onChange="{{ on.analysis }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="default">내 기본값 사용</option><option value="custom">개별 설정</option></select>
+        <span style="font-size:12px;color:#6B6A66;font-weight:400">글 단위 지표·단어별 밀도에 적용 (키워드 관련도는 해당 없음)</span>
+      </label>
+      <p data-ui-id="SOURCE-005-U10" style="margin:0;font-size:13px;color:#4A4945">URL 수집은 한 번만 실행합니다. 정기 수집이 필요하면 게시판 유형을 사용하세요</p>
+    </section>
+  </sc-if>
+
+  <!-- 4 수집 일정 · 분석 설정 (뉴스·게시판) -->
+  <sc-if value="{{ show.sched }}" hint-placeholder-val="{{ false }}">
+    <section data-func-id="FN-SRC-009" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">4</span><h2 style="margin:0;font-size:16px;font-weight:700">수집 일정 · 분석 설정</h2>
+        <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ toggleSched }}" style="margin-left:auto;background:none;border:none;color:#2A5599;font-size:14px;font-weight:700;cursor:pointer">접기</button></sc-if>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">정기 수집
+          <select data-ui-id="{{ ui.schedule }}" value="{{ f.schedule }}" onChange="{{ on.schedule }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="manual">수동</option><option value="hourly">매시간</option><option value="daily">매일</option><option value="weekly">매주</option><option value="cron">고급(cron)</option></select>
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">수동 · 매시간 · 매일 · 매주 · 고급(cron)</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">시각
+          <input data-ui-id="{{ ui.time }}" type="time" value="{{ f.time }}" onChange="{{ on.time }}" disabled="{{ timeDisabled }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:400;outline:none;width:100%">
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">서버 시간대: KST</span>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">분석 설정
+          <!-- [확인 필요] 개별 설정 선택 시 동작 -->
+          <select data-ui-id="{{ ui.analysis }}" value="{{ f.analysis }}" onChange="{{ on.analysis }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="default">내 기본값 사용</option><option value="custom">개별 설정</option></select>
+          <span style="font-size:12px;color:#6B6A66;font-weight:400">개별 설정을 고르면 이 소스에만 다른 판정 기준 적용</span>
+        </label>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">고급: cron 식 (선택)
+        <!-- 최소 실행 간격 [정책 필요] -->
+        <input data-ui-id="{{ ui.cron }}" value="{{ f.cron }}" onChange="{{ on.cron }}" placeholder="0 8 * * 1-5" aria-invalid="{{ errFlag.cron }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+        <span style="font-size:12px;color:#6B6A66;font-weight:400">예) 평일 오전 8시. 입력하면 위 선택보다 우선합니다</span>
+        <span style="font-size:12px;color:#A4470F;font-weight:400">{{ err.cron }}</span>
+      </label>
+    </section>
+  </sc-if>
+  <sc-if value="{{ show.schedSummary }}" hint-placeholder-val="{{ false }}">
+    <section data-ui-id="SOURCE-004-U11" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <span style="width:26px;height:26px;border-radius:50%;background:#E2F0E3;color:#2E6B3A;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">4</span>
+      <h2 style="margin:0;font-size:16px;font-weight:700">수집 일정 · 분석 설정</h2>
+      <span style="font-size:13px;color:#4A4945;flex:1;min-width:200px">{{ summary.sched }}</span>
+      <button type="button" onClick="{{ toggleSched }}" aria-expanded="false" style="background:none;border:none;color:#2A5599;font-size:14px;font-weight:700;cursor:pointer">펼치기</button>
+    </section>
+  </sc-if>
+
+  <div data-ui-id="{{ ui.footer }}" data-func-id="FN-SRC-010" style="display:flex;justify-content:flex-end;gap:8px">
+    <button type="button" onClick="{{ on.cancel }}" disabled="{{ ui.saving }}" style="height:44px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">취소</button>
+    <button type="button" onClick="{{ on.saveRun }}" disabled="{{ saveBlocked }}" style="height:44px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">저장 후 바로 수집</button>
+    <button type="button" onClick="{{ on.save }}" disabled="{{ saveBlocked }}" style="height:44px;padding:0 18px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">{{ saveLabel }}</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TONES = { gray: ['#EBE9E4', '#4A4945'], green: ['#E2F0E3', '#2E6B3A'], orange: ['#FBE6D8', '#A4470F'], blue: ['#E4EBF6', '#2A5599'] };
+const badge = (label, t) => ({ label, style: { display: 'inline-flex', padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', background: TONES[t][0], color: TONES[t][1] } });
+const META = {
+  'SOURCE-002': { title: '소스 추가 · 뉴스 키워드', desc: '검색할 키워드와 검색 옵션을 정합니다', type: 'news' },
+  'SOURCE-003': { title: '소스 추가 · 게시판', desc: '게시판 URL을 넣고 탐지 결과를 확인한 뒤 저장합니다', type: 'board' },
+  'SOURCE-004': { title: '소스 추가 · 게시판', desc: '사이트 화면에서 목록과 글 링크를 직접 클릭해 지정합니다', type: 'board' },
+  'SOURCE-005': { title: '소스 추가 · URL', desc: '글 주소를 넣으면 그 글들의 본문을 한 번 가져옵니다', type: 'url' },
+};
+const TYPES = [
+  ['news', 'SOURCE-002', '뉴스 키워드', '키워드로 네이버 뉴스를 검색해 모읍니다', '[예: 태권도 뉴스]'],
+  ['board', 'SOURCE-003', '게시판', '게시판 목록에서 새 글을 계속 모읍니다', '[예: 협회 공지사항]'],
+  ['url', 'SOURCE-005', 'URL', '주소를 넣은 글의 본문만 한 번 가져옵니다', '[예: 참고 기사 모음]'],
+];
+const SCHED = { manual: '수동', hourly: '매시간', daily: '매일', weekly: '매주', cron: '고급(cron)' };
+const pad = (n) => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const tabStyle = (on) => ({ padding: '10px 2px', background: 'none', border: 'none', borderBottom: on ? '2px solid #2A5599' : '2px solid transparent', marginBottom: -1, fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#1F1F1F' : '#4A4945', cursor: 'pointer' });
+const DEFAULTS = { name: '', keywords: [], kwInput: '', count: 30, sort: 'sim', period: '3d', nonKorean: false, schedule: 'daily', time: '', cron: '', analysis: 'default',
+  boardUrl: '', pageParam: 'page', pages: 2, maxPosts: 50, urlPattern: '', minLen: 30, boardPeriod: 'none', skipNotice: true, urls: '' };
+const STEP0 = { s1: 'selecting', s2: 'wait', s3: 'optional', s4: 'optional', s5: 'wait' };
+
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = this.initFrom(p.app); }
+  initFrom(app) {
+    const src = app.params.id ? app.store.sources.find((s) => s.id === app.params.id) : null;
+    const f = { ...DEFAULTS, ...(src ? JSON.parse(JSON.stringify(src)) : {}), kwInput: '' };
+    return {
+      editId: src ? src.id : null, f, err: {}, dirty: false,
+      searching: false, searchResults: null, detecting: false, detect: null, candIdx: 0, boardPosts: [],
+      checking: false, urlResults: null, saving: false, open: { basic: false, scope: false, sched: false },
+      steps: { ...STEP0 }, mode: null, selRow: null, previewPage: 'list', sel: { row: '', link: '' },
+    };
+  }
+  componentDidUpdate(prev) {
+    if ((prev.app.params.id || '') !== (this.props.app.params.id || '')) this.setState(this.initFrom(this.props.app));
+  }
+  setF = (patch) => this.setState((s) => ({ f: { ...s.f, ...patch }, dirty: true }));
+  setSteps = (patch, extra) => this.setState((s) => ({ steps: { ...s.steps, ...patch }, ...(extra || {}) }));
+
+  // Validation — 문서 확정: 검색 건수 1~1,000. 나머지 필수 조건은 [추정]. 오류 문구 [문구 확인 필요]
+  validate(type) {
+    const f = this.state.f; const err = {};
+    if (!f.name.trim()) err.name = '소스 이름을 입력하세요';
+    if (type === 'news') {
+      if (!f.keywords.length) err.keywords = '키워드를 1개 이상 추가하세요';
+      const n = Number(f.count); if (!(n >= 1 && n <= 1000)) err.count = '1~1,000 사이로 입력하세요';
+    }
+    if (type === 'board' && !f.boardUrl.trim()) err.boardUrl = '게시판 목록 URL을 입력하세요';
+    if (type === 'url' && !this.urlList().length) err.urls = '주소를 1개 이상 입력하세요';
+    if (type !== 'url' && f.cron.trim() && f.cron.trim().split(/\s+/).length !== 5) err.cron = 'cron 식 형식을 확인하세요 [추정]';
+    this.setState({ err });
+    return Object.keys(err).length === 0;
+  }
+  urlList() { return Array.from(new Set(this.state.f.urls.split('\n').map((x) => x.trim()).filter(Boolean))); }
+
+  async save(run) {
+    const app = this.props.app;
+    const type = META[app.route].type;
+    if (!this.validate(type)) { app.toast('입력값을 확인하세요 [문구 확인 필요]'); return; }
+    this.setState({ saving: true });
+    const f = this.state.f;
+    const prev = app.store.sources.find((s) => s.id === this.state.editId);
+    const target = type === 'news' ? f.keywords.map((k) => k.kw).join(', ') : type === 'board' ? f.boardUrl.replace(/^https?:\/\//, '') : `URL ${this.urlList().length}개`;
+    const payload = { ...(prev || { status: 'idle', last: '', recentNew: null }), ...f, id: this.state.editId, type, target, schedule: type === 'url' ? 'manual' : f.schedule };
+    delete payload.kwInput;
+    const saved = await app.api.saveSource(payload);
+    app.update((s) => ({ ...s, sources: prev ? s.sources.map((x) => (x.id === saved.id ? saved : x)) : [...s.sources, saved] }));
+    this.setState({ saving: false, dirty: false });
+    if (run) { setTimeout(() => app.runCollect([saved.id]), 0); app.nav('JOB-001'); } // 이동 화면 [확인 필요]
+    else { app.toast('소스를 저장했습니다'); app.nav('SOURCE-001'); } // [추정]
+  }
+
+  renderVals() {
+    const app = this.props.app;
+    const s = this.state; const f = s.f;
+    const meta = META[app.route] || META['SOURCE-002'];
+    const route = app.route;
+    const isNews = meta.type === 'news', isUrl = meta.type === 'url', isAuto = route === 'SOURCE-003', isManual = route === 'SOURCE-004', isBoard = isAuto || isManual;
+    const on = {};
+    ['name', 'boardUrl', 'kwInput', 'count', 'sort', 'period', 'schedule', 'time', 'cron', 'analysis', 'pageParam', 'pages', 'maxPosts', 'urlPattern', 'minLen', 'boardPeriod', 'urls']
+      .forEach((k) => { on[k] = (e) => this.setF({ [k]: e.target.value }); });
+    ['nonKorean', 'skipNotice'].forEach((k) => { on[k] = (e) => this.setF({ [k]: e.target.checked }); });
+
+    // FUNC: FN-SRC-002 키워드 추가/삭제
+    on.addKw = () => {
+      const kw = f.kwInput.trim();
+      if (!kw) return this.setState({ err: { ...s.err, keywords: '키워드를 입력하세요 [문구 확인 필요]' } });
+      if (f.keywords.some((k) => k.kw === kw)) return this.setState({ err: { ...s.err, keywords: '이미 추가된 키워드입니다 [추정]' } });
+      this.setF({ keywords: [...f.keywords, { kw, origin: '직접 입력', added: today(), recent: null }], kwInput: '' });
+      this.setState({ err: { ...s.err, keywords: '' } });
+    };
+    on.kwKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); on.addKw(); } };
+    // FUNC: FN-SRC-003
+    on.searchTest = async () => {
+      if (!f.keywords.length) return this.setState({ err: { ...s.err, search: '키워드를 1개 이상 추가하세요 [문구 확인 필요]' } });
+      this.setState({ searching: true, err: { ...s.err, search: '' } });
+      const r = await app.api.searchTest(f.keywords[0].kw);
+      this.setState({ searching: false, searchResults: r });
+    };
+    // FUNC: FN-SRC-004 / FN-SRC-005
+    on.detect = async () => {
+      if (!f.boardUrl.trim()) return this.setState({ err: { ...s.err, boardUrl: '게시판 목록 URL을 입력하세요', detect: '' } });
+      this.setState({ detecting: true, err: { ...s.err, boardUrl: '', detect: '' } });
+      const d = await app.api.detectBoard(f.boardUrl.trim());
+      const posts = await app.api.boardPreview(0);
+      this.setState({ detecting: false, detect: d, candIdx: 0, boardPosts: posts });
+    };
+    // FUNC: FN-SRC-007
+    on.checkUrls = async () => {
+      const list = this.urlList();
+      if (!list.length) return this.setState({ err: { ...s.err, urls: '주소를 1개 이상 입력하세요' } });
+      this.setState({ checking: true, err: { ...s.err, urls: '' } });
+      const r = await app.api.checkUrls(list, Number(f.minLen) || 0);
+      this.setState({ checking: false, urlResults: r });
+    };
+    on.save = () => this.save(false);
+    on.saveRun = () => this.save(true);
+    // 취소 — 입력 폐기 확인 [추정] / [모달 닫기 정책 확인 필요]
+    on.cancel = () => {
+      if (!s.dirty) return app.nav('SOURCE-001');
+      app.confirm({ title: '입력한 내용을 저장하지 않고 나갈까요?', body: '[문구 확인 필요] 이탈 시 입력값 보존 정책은 정해지지 않았습니다.', okLabel: '나가기', onOk: () => app.nav('SOURCE-001') });
+    };
+    on.selRow = (e) => this.setState({ sel: { ...s.sel, row: e.target.value } });
+    on.selLink = (e) => this.setState({ sel: { ...s.sel, link: e.target.value } });
+    on.previewRefresh = () => app.toast('미리보기를 다시 불러왔습니다 (MOCK)');
+    on.pickBody = () => { if (s.steps.s5 === 'selecting') this.setSteps({ s5: 'done' }); };
+
+    const typeCards = TYPES.map(([t, r, label, desc]) => {
+      const onT = meta.type === t;
+      return {
+        label, desc, checked: onT ? 'true' : 'false', locked: !!s.editId && !onT, // 편집 모드 유형 변경 불가 [추정]
+        onClick: () => { if (!onT) app.nav(r, s.editId ? { id: s.editId } : undefined); }, // 입력값 처리 [확인 필요] — 공통 필드 유지
+        style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, padding: '16px', borderRadius: 10, textAlign: 'left', cursor: 'pointer', background: onT ? '#E6ECF5' : '#fff', border: onT ? '2px solid #2A5599' : '1px solid #E4E2DC', margin: onT ? 0 : 1 },
+        titleStyle: { fontSize: 15, fontWeight: 700, color: onT ? '#2A5599' : '#1F1F1F' },
+      };
+    });
+
+    const errFlag = {}; Object.keys(s.err).forEach((k) => { errFlag[k] = s.err[k] ? 'true' : 'false'; });
+
+    // Manual (SOURCE-004)
+    const st = s.steps;
+    const stepState = { selecting: ['선택 중', '#2A5599'], done: ['선택됨', '#2E6B3A'], optional: ['선택 사항', '#4A4945'], wait: ['대기', '#4A4945'], skipped: ['건너뜀', '#4A4945'] };
+    const mk = (n, key, title, desc, actions) => {
+      const v = st[key];
+      const active = v === 'selecting';
+      return {
+        n, title, desc, actions, stateLabel: stepState[v][0], stateStyle: { fontSize: 12, fontWeight: 600, color: stepState[v][1] },
+        style: { display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 10, background: '#fff', border: active ? '2px solid #2A5599' : '1px solid #E4E2DC', margin: active ? 0 : 1 },
+      };
+    };
+    const s2done = st.s2 === 'done';
+    const stepCards = [
+      mk(1, 's1', '목록 한 줄', st.s1 === 'done' ? '같은 모양의 줄 5개를 찾았습니다 (점선 표시) · 공지 줄 1개 제외' : '미리보기에서 글이 있는 줄 하나를 클릭합니다 [추정]',
+        st.s1 === 'done' ? [{ label: '다시 선택', onClick: () => this.setState({ steps: { ...STEP0 }, selRow: null, mode: null, previewPage: 'list', sel: { row: '', link: '' } }) }] : []), // 이후 단계 초기화 [확인 필요]
+      mk(2, 's2', '글 링크', '줄 안에서 글로 들어가는 링크. 주황색 후보를 클릭하면 확정됩니다', []),
+      mk(3, 's3', '제목', '건너뛰면 링크 글자를 제목으로 씁니다', [
+        { label: '페이지에서 선택', disabled: !s2done, onClick: () => this.setSteps({ s3: 'selecting' }, { mode: 'title', previewPage: 'list' }) },
+        { label: '건너뛰기', disabled: !s2done, onClick: () => this.setSteps({ s3: 'skipped' }, { mode: null }) }]),
+      mk(4, 's4', '날짜', '건너뛰면 줄 전체에서 날짜 형태를 찾습니다', [
+        { label: '페이지에서 선택', disabled: !s2done, onClick: () => this.setSteps({ s4: 'selecting' }, { mode: 'date', previewPage: 'list' }) },
+        { label: '건너뛰기', disabled: !s2done, onClick: () => this.setSteps({ s4: 'skipped' }, { mode: null }) }]),
+      mk(5, 's5', '본문 영역', '첫 번째 글을 열어 본문이 있는 부분을 클릭합니다. 건너뛰면 자동 추출', [
+        { label: '첫 글 열기', disabled: !s2done, onClick: () => this.setSteps({ s5: 'selecting' }, { previewPage: 'post', mode: null }) }]),
+    ];
+    const instruction = st.s1 === 'selecting' ? '미리보기에서 글 한 줄을 클릭하세요 [추정]'
+      : st.s2 === 'selecting' ? '미리보기에서 글 제목을 클릭하세요'
+      : s.mode === 'title' ? '미리보기에서 제목을 클릭하세요 [추정]'
+      : s.mode === 'date' ? '미리보기에서 날짜를 클릭하세요 [추정]'
+      : st.s5 === 'selecting' ? '본문이 있는 부분을 클릭하세요 [추정]'
+      : '필수 단계를 마쳤습니다 [문구 확인 필요]';
+    const previewRows = ['공지', '124', '123', '122', '121', '120'].map((no, i) => {
+      const notice = i === 0;
+      const isSel = s.selRow === i;
+      const sameShape = st.s1 === 'done' && !notice && !isSel;
+      const linkHint = isSel && st.s2 === 'selecting';
+      const titlePick = isSel && ((st.s2 === 'selecting') || s.mode === 'title');
+      const datePick = isSel && s.mode === 'date';
+      return {
+        no, rowLabel: isSel,
+        linkHint,
+        style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 10px', borderRadius: 4, cursor: st.s1 === 'selecting' && !notice ? 'pointer' : 'default',
+          border: isSel ? '2px solid #2A5599' : sameShape ? '2px dashed #2A5599' : '2px solid transparent', background: isSel ? '#E6ECF5' : 'transparent' },
+        titleStyle: { fontSize: 13, textDecoration: 'underline', padding: '2px 4px', borderRadius: 3, cursor: titlePick ? 'pointer' : 'inherit',
+          outline: titlePick ? '2px solid #A4470F' : 'none', background: titlePick ? '#FBE9DD' : 'transparent', whiteSpace: 'nowrap' },
+        dateStyle: { width: 60, fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, padding: '2px 4px', borderRadius: 3, cursor: datePick ? 'pointer' : 'inherit', outline: datePick ? '2px solid #A4470F' : 'none' },
+        onRow: () => { if (st.s1 === 'selecting' && !notice) this.setState({ selRow: i, steps: { ...st, s1: 'done', s2: 'selecting' }, sel: { ...s.sel, row: '#bo_list tbody tr' } }); },
+        onTitle: (e) => {
+          if (!isSel) return;
+          if (st.s2 === 'selecting') { e.stopPropagation(); this.setState({ steps: { ...st, s2: 'done' }, sel: { ...s.sel, link: 'td.subject a' } }); }
+          else if (s.mode === 'title') { e.stopPropagation(); this.setState({ steps: { ...st, s3: 'done' }, mode: null }); }
+        },
+        onDate: (e) => { if (isSel && s.mode === 'date') { e.stopPropagation(); this.setState({ steps: { ...st, s4: 'done' }, mode: null }); } },
+      };
+    });
+    const extractRows = s2done ? [1, 2, 3, 4].map((i) => ({ title: '[게시글 제목]', date: '[MM-DD]', url: `…wr_id=${125 - i}` })) : [];
+
+    const urlList = f.urls.split('\n').map((x) => x.trim()).filter(Boolean);
+    const RES = { ok: ['확인됨', 'green'], short: ['본문 짧음', 'orange'], robots: ['robots 차단', 'orange'] };
+    const schedTxt = f.cron ? `cron ${f.cron}` : `${SCHED[f.schedule]}${f.time ? ' ' + f.time : ' [HH:MM]'}`;
+    const manualIncomplete = isManual && !(st.s1 === 'done' && s2done); // 필수 단계 미완료 시 비활성 [추정]
+
+    return {
+      screenId: route, title: meta.title, desc: meta.desc, namePh: (TYPES.find((t) => t[0] === meta.type) || TYPES[0])[4],
+      isNews, isUrl, isAuto, isManual, isBoard, f, err: s.err, errFlag, on, typeCards,
+      ui: {
+        typeCards: { news: 'SOURCE-002-U01', board: 'SOURCE-003-U01', url: 'SOURCE-005-U01' }[meta.type], name: { news: 'SOURCE-002-U02', board: 'SOURCE-003-U02', url: 'SOURCE-005-U02' }[meta.type],
+        schedule: isNews ? 'SOURCE-002-U12' : 'SOURCE-003-U18', time: isNews ? 'SOURCE-002-U13' : 'SOURCE-003-U19', analysis: isNews ? 'SOURCE-002-U14' : 'SOURCE-003-U20', cron: isNews ? 'SOURCE-002-U15' : 'SOURCE-003-U21',
+        footer: { 'SOURCE-002': 'SOURCE-002-U16', 'SOURCE-003': 'SOURCE-003-U22', 'SOURCE-004': 'SOURCE-004-U12', 'SOURCE-005': 'SOURCE-005-U11' }[route],
+        searching: s.searching, detecting: s.detecting, checking: s.checking, saving: s.saving,
+      },
+      show: {
+        basicFull: !isManual || s.open.basic, basicSummary: isManual && !s.open.basic,
+        scope: isAuto || (isManual && s.open.scope), scopeSummary: isManual && !s.open.scope,
+        sched: isNews || isAuto || (isManual && s.open.sched), schedSummary: isManual && !s.open.sched,
+      },
+      summary: {
+        basic: `게시판 · ${f.name || '[소스 이름]'} · ${f.boardUrl || 'https://[사이트]/bbs/board.php?bo_table=notice'}`,
+        scope: `${f.pageParam} 파라미터 · ${f.pages}쪽 · 최대 ${f.maxPosts}개 · ${f.skipNotice ? '공지 제외' : '공지 포함'}`,
+        sched: `${schedTxt} · ${f.analysis === 'custom' ? '개별 설정' : '내 기본값'}`,
+      },
+      toggleBasic: () => this.setState({ open: { ...s.open, basic: !s.open.basic } }),
+      toggleScope: () => this.setState({ open: { ...s.open, scope: !s.open.scope } }),
+      toggleSched: () => this.setState({ open: { ...s.open, sched: !s.open.sched } }),
+      kwRows: f.keywords.map((k) => ({
+        kw: k.kw, origin: k.origin === '직접 입력' ? badge('직접 입력', 'gray') : badge(k.origin, 'blue'), added: k.added, recent: k.recent == null ? '—' : `${k.recent}건`, aria: `${k.kw} 삭제`,
+        onDelete: () => this.setF({ keywords: f.keywords.filter((x) => x.kw !== k.kw) }),
+      })),
+      noKw: f.keywords.length === 0,
+      searchLabel: s.searching ? '검색 중…' : '검색 테스트',
+      searchRows: s.searchResults && s.searchResults.length ? s.searchResults : null,
+      detectTabs: [['SOURCE-003', '자동 탐지'], ['SOURCE-004', '수동 설정 (페이지에서 선택)']].map(([r, label]) => ({
+        label, selected: route === r ? 'true' : 'false', style: tabStyle(route === r), onClick: () => app.nav(r, s.editId ? { id: s.editId } : undefined), // 탭 전환 시 선택값 유지 [확인 필요]
+      })),
+      detectLabel: s.detecting ? '탐지 중…' : '탐지 실행', detect: s.detect, noDetect: !s.detect && !s.detecting,
+      candRows: s.detect ? s.detect.candidates.map((c, i) => ({
+        pattern: c.pattern, links: c.links, checked: s.candIdx === i, adopted: s.candIdx === i,
+        onPick: async () => { this.setState({ candIdx: i }); const posts = await app.api.boardPreview(i); this.setState({ boardPosts: posts }); },
+        style: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 8, cursor: 'pointer', background: s.candIdx === i ? '#E6ECF5' : '#fff', border: s.candIdx === i ? '1px solid #2A5599' : '1px solid #E4E2DC' },
+      })) : [],
+      boardPosts: s.boardPosts,
+      pageSegs: [['list', '목록 페이지'], ['post', '글 페이지']].map(([id, label]) => ({
+        label, selected: s.previewPage === id ? 'true' : 'false', onClick: () => this.setState({ previewPage: id }),
+        style: { height: 34, padding: '0 14px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: s.previewPage === id ? '#fff' : 'transparent', boxShadow: s.previewPage === id ? '0 1px 2px rgba(0,0,0,.1)' : 'none' },
+      })),
+      isListPage: s.previewPage === 'list', isPostPage: s.previewPage === 'post',
+      previewUrl: s.previewPage === 'list' ? (f.boardUrl || 'https://[사이트]/bbs/board.php?bo_table=notice') : (f.boardUrl || 'https://[사이트]/bbs/board.php?bo_table=notice') + '&wr_id=124',
+      previewRows, stepCards, instruction, sel: s.sel, extractRows, noExtract: !s2done,
+      bodyLabel: st.s5 === 'done',
+      bodyBlockStyle: { position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 6, cursor: st.s5 === 'selecting' ? 'pointer' : 'default',
+        border: st.s5 === 'done' ? '2px solid #2A5599' : st.s5 === 'selecting' ? '2px dashed #A4470F' : '2px solid transparent', background: st.s5 === 'done' ? '#E6ECF5' : 'transparent' },
+      urlStat: { count: urlList.length, dup: urlList.length - new Set(urlList).size },
+      checkLabel: s.checking ? '확인 중…' : '주소 확인',
+      urlRows: s.urlResults ? s.urlResults.map((u) => ({ url: u.url, text: u.text, badge: badge(...RES[u.result]) })) : null,
+      timeDisabled: f.schedule === 'manual' || f.schedule === 'hourly',
+      saveBlocked: s.saving || manualIncomplete, saveLabel: s.saving ? '저장 중…' : '저장',
+    };
+  }
+}
+</script>
+</body>
+</html>

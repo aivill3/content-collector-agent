@@ -1,0 +1,9 @@
+requests
+python-dotenv
+trafilatura          # 본문 추출 (taekwonw-agent 와 동일)
+beautifulsoup4       # 게시판 목록 파싱
+lxml
+tzdata ; sys_platform == "win32"
+
+# 개발용
+pytest

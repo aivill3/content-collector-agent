@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="JOB-001 수집 작업" data-screen-id="JOB-001" style="display:flex;flex-direction:column;gap:24px">
+  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h1 style="margin:0;font-size:28px;font-weight:700">수집 작업</h1>
+      <p style="margin:0;color:#6B6A66">실행 이력과 단계별 건수로 수집 결과가 왜 이렇게 나왔는지 확인합니다</p>
+    </div>
+    <button type="button" data-ui-id="JOB-001-U01" data-func-id="FN-JOB-004" onClick="{{ onCsv }}" disabled="{{ empty }}" style="height:44px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F6F5F1">CSV 내보내기</button>
+  </header>
+
+  <section data-func-id="FN-JOB-001" aria-label="필터" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;gap:16px;flex-wrap:wrap">
+    <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;width:220px">소스
+      <select data-ui-id="JOB-001-U02" value="{{ src }}" onChange="{{ onSrc }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+        <option value="all">전체 소스</option>
+        <sc-for list="{{ srcOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;width:160px">상태
+      <!-- 선택지 [추정] -->
+      <select data-ui-id="JOB-001-U03" value="{{ status }}" onChange="{{ onStatus }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+        <option value="all">전체</option><option value="success">성공</option><option value="fail">실패</option><option value="running">실행 중</option><option value="queued">대기</option>
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;width:160px">기간
+      <!-- [확인 필요] 선택지 · MOCK 데이터는 모두 최근 7일 이내 -->
+      <select data-ui-id="JOB-001-U04" value="{{ period }}" onChange="{{ onPeriod }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+        <option value="7">최근 7일</option><option value="30">최근 30일</option>
+      </select>
+    </label>
+  </section>
+
+  <section style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:12px 24px 24px">
+    <div style="overflow-x:auto">
+      <div data-ui-id="JOB-001-U05" role="table" aria-label="수집 작업 이력" style="min-width:820px">
+        <div role="row" style="display:grid;grid-template-columns:140px minmax(0,1fr) 76px 76px 100px 80px;gap:12px;padding:14px 0 10px;border-bottom:1px solid #E8E6E0;font-size:12px;color:#4A4945">
+          <span role="columnheader">실행 시각</span><span role="columnheader">소스</span><span role="columnheader">방식</span><span role="columnheader">소요</span><span role="columnheader">상태</span><span role="columnheader">수집</span>
+        </div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+          <div role="row" onClick="{{ r.onToggle }}" onKeyDown="{{ r.onKey }}" tabindex="{{ r.tab }}" aria-expanded="{{ r.expanded }}" style="{{ r.rowStyle }}">
+            <span role="cell" style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.time }}</span>
+            <span role="cell">{{ r.source }}</span>
+            <span role="cell"><span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:12px;font-weight:600">{{ r.mode }}</span></span>
+            <span role="cell" style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.dur }}</span>
+            <span role="cell"><span style="{{ r.badge.style }}">{{ r.badge.label }}</span></span>
+            <span role="cell" style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.count }}</span>
+          </div>
+          <sc-if value="{{ r.showStages }}" hint-placeholder-val="{{ false }}">
+            <div data-ui-id="JOB-001-U06" data-func-id="FN-JOB-002" style="margin:12px 0;padding:16px;border-radius:10px;background:#EBE9E4;display:flex;flex-direction:column;gap:12px">
+              <strong style="font-size:13px">단계별 건수</strong>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <sc-for list="{{ r.stages }}" as="g" hint-placeholder-count="6">
+                  <sc-if value="{{ g.arrow }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="color:#6B6A66">→</span></sc-if>
+                  <div style="background:#fff;border:1px solid #E4E2DC;border-radius:8px;padding:12px 16px;min-width:120px;display:flex;flex-direction:column;gap:4px">
+                    <span style="font-size:12px;color:#4A4945">{{ g.label }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600">{{ g.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <!-- [확인 필요] 게시판·URL 작업의 단계명 / 원본 응답 표시 방식 (FN-JOB-005) -->
+              <span style="font-size:13px;color:#4A4945"><a href="#" onClick="{{ onRaw }}" style="color:#4A4945">키워드별 네이버 API 원본 응답 보기</a> · <a href="#" onClick="{{ onExcluded }}" style="color:#4A4945">제외된 글 목록 보기</a></span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ r.showFail }}" hint-placeholder-val="{{ false }}">
+            <div data-ui-id="JOB-001-U07" data-func-id="FN-JOB-003" role="alert" style="margin:12px 0;padding:16px;border-radius:10px;background:#FBE9DD;display:flex;flex-direction:column;gap:10px">
+              <strong style="font-size:13px;color:#A4470F">실패 사유</strong>
+              <span style="font-size:14px">{{ r.reason }}</span>
+              <div style="display:flex;gap:8px">
+                <sc-if value="{{ r.isBoard }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ r.onRedetect }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">탐지 다시 실행</button></sc-if>
+                <button type="button" onClick="{{ r.onOpenSource }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">소스 설정 열기</button>
+              </div>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+      <p style="margin:0;padding:32px 0;text-align:center;color:#6B6A66;font-size:13px">조건에 맞는 작업 이력이 없습니다 [문구 확인 필요]</p>
+    </sc-if>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TONES = { gray: ['#EBE9E4', '#4A4945'], green: ['#E2F0E3', '#2E6B3A'], orange: ['#FBE6D8', '#A4470F'], blue: ['#E4EBF6', '#2A5599'] };
+const badge = (label, t) => ({ label, style: { display: 'inline-flex', padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', background: TONES[t][0], color: TONES[t][1] } });
+const STATUS = { success: ['성공', 'green'], fail: ['실패', 'orange'], running: ['실행 중', 'blue'], queued: ['대기', 'gray'] };
+const FORM = { news: 'SOURCE-002', board: 'SOURCE-003', url: 'SOURCE-005' };
+const STAGES = [['search', '검색'], ['dedup', '중복 제거 후'], ['period', '기간 필터 후'], ['fresh', '신규'], ['body', '본문 확보'], ['clean', '정제 통과']];
+
+class Component extends DCLogic {
+  state = { src: 'all', status: 'all', period: '7', open: null };
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const { src, status } = this.state;
+    const firstS = st.jobs.find((j) => j.status === 'success');
+    const firstF = st.jobs.find((j) => j.status === 'fail');
+    const open = this.state.open || { [firstS && firstS.id]: true, [firstF && firstF.id]: true }; // 와이어프레임 기본 펼침 재현
+    const list = st.jobs.filter((j) => (src === 'all' || j.sourceId === src) && (status === 'all' || j.status === status));
+    const rows = list.map((j) => {
+      const s = st.sources.find((x) => x.id === j.sourceId);
+      const expandable = j.status === 'success' || j.status === 'fail';
+      const isOpen = !!open[j.id];
+      const toggle = () => { if (expandable) this.setState({ open: { ...open, [j.id]: !isOpen } }); };
+      return {
+        time: j.time, source: s ? s.name : '—', mode: j.mode, dur: j.dur == null ? '—' : `${j.dur}초`, badge: badge(...STATUS[j.status]),
+        count: j.count == null ? '—' : `${j.count}건`,
+        expanded: expandable ? String(isOpen) : undefined, tab: expandable ? 0 : undefined,
+        rowStyle: { display: 'grid', gridTemplateColumns: '140px minmax(0,1fr) 76px 76px 100px 80px', gap: 12, alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #E8E6E0', fontSize: 14, cursor: expandable ? 'pointer' : 'default' },
+        onToggle: toggle, onKey: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }, // 행 클릭 펼침 [추정]
+        showStages: isOpen && j.status === 'success',
+        stages: j.stages ? STAGES.map(([k, label], i) => ({ label, v: j.stages[k], arrow: i > 0 })) : [],
+        showFail: isOpen && j.status === 'fail', reason: j.reason, isBoard: s && s.type === 'board',
+        onRedetect: (e) => { e.stopPropagation(); app.nav('SOURCE-003', { id: j.sourceId }); }, // 이동 vs 제자리 [확인 필요]
+        onOpenSource: (e) => { e.stopPropagation(); app.nav(FORM[s.type], { id: j.sourceId }); },
+      };
+    });
+    const tbd = (e) => { e.preventDefault(); e.stopPropagation(); app.toast('[확인 필요] 표시 방식이 정의되지 않았습니다'); };
+    return {
+      src, status, period: this.state.period, srcOptions: st.sources.map((s) => ({ id: s.id, name: s.name })),
+      rows, empty: rows.length === 0,
+      onSrc: (e) => this.setState({ src: e.target.value }), onStatus: (e) => this.setState({ status: e.target.value }), onPeriod: (e) => this.setState({ period: e.target.value }),
+      onRaw: tbd, onExcluded: tbd,
+      onCsv: () => {
+        const esc = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+        const lines = [['실행 시각', '소스', '방식', '소요(초)', '상태', '수집'].map(esc).join(',')]
+          .concat(list.map((j) => { const s = st.sources.find((x) => x.id === j.sourceId); return [j.time, s ? s.name : '', j.mode, j.dur, STATUS[j.status][0], j.count].map(esc).join(','); }));
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv' }));
+        a.download = 'jobs.csv'; a.click();
+        app.toast(`${list.length}건을 CSV로 내보냈습니다`);
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+# 저장소 전체의 무시 규칙을 이 파일 하나에 모은다 (backend · frontend · docs).
+
+# 환경 변수 — 예시 파일만 올린다
+.env
+.env.*
+!.env.example
+
+# 로그 · 편집기 · OS
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.pem
+
+# ── backend (Python) ──
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+backend/logs/
+backend/data/
+
+# ── frontend (Next.js) ──
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/coverage/
+frontend/.vercel/
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+*.tsbuildinfo
+frontend/next-env.d.ts
+
+# ── docs ──
+# Claude Design 단독 실행용 내보내기 (폰트·이미지 포함 6.7MB).
+# 같은 내용이 docs/design/*.dc.html 로 있고, 필요하면 Claude Design 에서 다시 내보낸다.
+docs/design/*Prototype.html

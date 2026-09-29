@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="CONTENT-001 콘텐츠 목록" data-screen-id="CONTENT-001" style="display:flex;flex-direction:column;gap:24px">
+  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h1 style="margin:0;font-size:28px;font-weight:700">콘텐츠</h1>
+      <p style="margin:0;color:#6B6A66">수집된 글을 소스·기간·관련도로 걸러 봅니다</p>
+    </div>
+    <!-- [추정] 현재 필터 결과 CSV / 포함 열 [확인 필요] / 0건이면 비활성 [추정] -->
+    <button type="button" data-ui-id="CONTENT-001-U01" data-func-id="FN-CNT-002" onClick="{{ onCsv }}" disabled="{{ noRows }}" style="height:44px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F6F5F1">CSV 내보내기</button>
+  </header>
+
+  <section data-func-id="FN-CNT-001" aria-label="필터" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+    <label style="flex:2.4 1 240px;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">검색
+      <!-- [확인 필요] 검색 대상(제목/본문) — 제목·요약으로 가정 -->
+      <input data-ui-id="CONTENT-001-U02" type="search" value="{{ q }}" onChange="{{ onQ }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+    </label>
+    <label style="flex:1 1 160px;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">소스
+      <select data-ui-id="CONTENT-001-U03" value="{{ src }}" onChange="{{ onSrc }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+        <option value="all">전체 소스</option>
+        <sc-for list="{{ srcOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+      </select>
+    </label>
+    <label style="flex:.9 1 140px;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">기간
+      <!-- [확인 필요] 선택지 목록 — 최근 7일 외 항목은 추정 -->
+      <select data-ui-id="CONTENT-001-U04" value="{{ period }}" onChange="{{ onPeriod }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+        <option value="7">최근 7일</option>
+        <option value="30">최근 30일</option>
+        <option value="all">전체</option>
+      </select>
+    </label>
+    <div style="flex:0 1 auto;max-width:100%;min-width:0;display:flex;flex-direction:column;gap:8px">
+      <span id="rel-label" style="font-size:13px;font-weight:600">키워드 관련도</span>
+      <div data-ui-id="CONTENT-001-U05" role="radiogroup" aria-labelledby="rel-label" style="display:flex;gap:2px;padding:4px;background:#EBE9E4;border-radius:10px;overflow-x:auto">
+        <sc-for list="{{ rels }}" as="r" hint-placeholder-count="4">
+          <button type="button" role="radio" aria-checked="{{ r.checked }}" onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:12px 24px 24px;display:flex;flex-direction:column;gap:16px">
+    <div style="overflow-x:auto">
+      <table data-ui-id="CONTENT-001-U06" style="width:100%;border-collapse:collapse;font-size:14px;min-width:820px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0;width:44%">제목</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">출처</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">발행일</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">수집 경로</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:14px 0 10px;border-bottom:1px solid #E8E6E0">관련도</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+            <tr data-ui-id="CONTENT-001-U07" style="{{ r.rowStyle }}">
+              <td style="padding:12px 16px 12px 0;border-bottom:1px solid #E8E6E0">
+                <a href="{{ r.href }}" style="display:block;font-weight:700;color:#1F1F1F">{{ r.title }}</a>
+                <span style="display:block;margin-top:4px;font-size:12px;color:#8A8984;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:460px">{{ r.summary }}</span>
+              </td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ r.outlet }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.date }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ r.path }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="{{ r.rel.style }}">{{ r.rel.label }}</span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+      <!-- Empty [문구 확인 필요] -->
+      <div style="padding:32px 0;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <p style="margin:0;font-weight:600">조건에 맞는 콘텐츠가 없습니다</p>
+        <p style="margin:0;font-size:13px;color:#6B6A66">[문구 확인 필요]</p>
+        <button type="button" onClick="{{ onReset }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">필터 초기화</button>
+      </div>
+    </sc-if>
+    <div data-ui-id="CONTENT-001-U08" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:13px;color:#6B6A66">총 {{ total }}건 · '스쳐 지나감'은 분석 설정에 따라 {{ passingNote }}</span>
+      <nav aria-label="페이지" style="display:flex;gap:6px">
+        <button type="button" onClick="{{ onPrev }}" disabled="{{ atFirst }}" style="height:36px;min-width:48px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">이전</button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+          <button type="button" aria-current="{{ p.current }}" onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.n }}</button>
+        </sc-for>
+        <button type="button" onClick="{{ onNext }}" disabled="{{ atLast }}" style="height:36px;min-width:48px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">다음</button>
+      </nav>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TONES = { gray: ['#EBE9E4', '#4A4945'], green: ['#E2F0E3', '#2E6B3A'], blue: ['#E4EBF6', '#2A5599'] };
+const badge = (label, t) => ({ label, style: { display: 'inline-flex', padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', background: TONES[t][0], color: TONES[t][1] } });
+const REL = { main: ['주제 기사', 'green'], partial: ['부분 언급', 'blue'], passing: ['스쳐 지나감', 'gray'] };
+const PAGE_SIZE = 8; // [확인 필요] 페이지당 건수
+const segStyle = (on) => ({ height: 32, padding: '0 12px', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: on ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap', background: on ? '#fff' : 'transparent', color: on ? '#1F1F1F' : '#4A4945', boxShadow: on ? '0 1px 2px rgba(0,0,0,.08)' : 'none' });
+const pageStyle = (on) => ({ height: 36, minWidth: 40, padding: '0 12px', border: on ? '1px solid #2A5599' : '1px solid #D9D7D0', borderRadius: 8, background: on ? '#E6ECF5' : '#fff', color: on ? '#2A5599' : '#1F1F1F', fontSize: 14, fontWeight: 700, cursor: 'pointer' });
+
+class Component extends DCLogic {
+  constructor(p) { super(p); const q = (p.app && p.app.params && p.app.params.q) || ''; this.state = { q, src: 'all', period: q ? 'all' : '7', rel: 'all', page: 1 }; }
+  filtered() {
+    const { q, src, period, rel } = this.state;
+    const st = this.props.app.store;
+    const mode = st.settings.passingMode;
+    return st.contents.filter((c) => {
+      if (q && !(c.title + ' ' + c.summary).includes(q)) return false;
+      if (src !== 'all' && c.sourceId !== src) return false;
+      if (period !== 'all' && c.daysAgo >= Number(period)) return false;
+      if (rel !== 'all' && c.relevance !== rel) return false;
+      if (mode === 'hide' && c.relevance === 'passing' && rel !== 'passing') return false;
+      return true;
+    });
+  }
+  set(patch) { this.setState({ ...patch, page: 1 }); } // 필터 변경 시 1페이지 [추정]
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const list = this.filtered();
+    const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    const page = Math.min(this.state.page, pageCount);
+    const mode = st.settings.passingMode;
+    const rows = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((c) => {
+      const s = st.sources.find((x) => x.id === c.sourceId);
+      return {
+        href: `#/CONTENT-002?id=${c.id}`, title: c.title, summary: c.summary, outlet: c.outlet, date: c.published.slice(5, 10),
+        path: c.type === 'news' ? `키워드 '${c.keyword}'` : c.type === 'board' ? `게시판 '${s ? s.name : ''}'` : 'URL 수집',
+        rel: c.relevance ? badge(...REL[c.relevance]) : badge('—', 'gray'),
+        rowStyle: { opacity: mode === 'dim' && c.relevance === 'passing' ? 0.45 : 1 },
+      };
+    });
+    const rels = [['all', '전체'], ['main', '주제 기사'], ['partial', '부분 언급'], ['passing', '스쳐 지나감']].map(([id, label]) => ({
+      label, checked: this.state.rel === id ? 'true' : 'false', style: segStyle(this.state.rel === id), onClick: () => this.set({ rel: id }),
+    }));
+    const pages = Array.from({ length: pageCount }, (_, i) => ({ n: i + 1, current: i + 1 === page ? 'page' : undefined, style: pageStyle(i + 1 === page), onClick: () => this.setState({ page: i + 1 }) }));
+    return {
+      q: this.state.q, src: this.state.src, period: this.state.period,
+      srcOptions: st.sources.map((s) => ({ id: s.id, name: s.name })),
+      rels, rows, pages, total: list.length, noRows: list.length === 0,
+      passingNote: mode === 'dim' ? '흐리게 표시' : mode === 'hide' ? '숨김' : '그대로 표시',
+      atFirst: page <= 1, atLast: page >= pageCount,
+      onQ: (e) => this.set({ q: e.target.value }), onSrc: (e) => this.set({ src: e.target.value }), onPeriod: (e) => this.set({ period: e.target.value }),
+      onPrev: () => this.setState({ page: page - 1 }), onNext: () => this.setState({ page: page + 1 }),
+      onReset: () => this.set({ q: '', src: 'all', period: '7', rel: 'all' }),
+      // FUNC: FN-CNT-002 — 클라이언트에서 현재 필터 결과를 CSV로 생성 (실서비스는 서버 생성 여부 [API 확인 필요])
+      onCsv: () => {
+        const esc = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+        const lines = [['제목', '출처', '발행일', '수집 경로', '관련도', 'URL'].map(esc).join(',')]
+          .concat(list.map((c) => [c.title, c.outlet, c.published, c.type, c.relevance ? REL[c.relevance][0] : '', c.url].map(esc).join(',')));
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv' }));
+        a.download = 'contents.csv'; a.click();
+        app.toast(`${list.length}건을 CSV로 내보냈습니다`);
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

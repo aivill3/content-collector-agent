@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/*
+ * 디자인 토큰 — docs/design/*.dc.html 인라인 스타일에서 추출.
+ * 시안에 디자인 시스템이 첨부되지 않아 값은 와이어프레임 기준이다. [디자인 시스템 확인 필요]
+ * 브레이크포인트는 Tailwind 기본값 md(768px)·lg(1024px)이 시안의 tablet·desktop 기준과 같다.
+ */
+@theme {
+  --font-sans: var(--font-plex-kr), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* 바탕·면 */
+  --color-canvas: #f3f2ee;
+  --color-surface: #ffffff;
+  --color-subtle: #ebe9e4;
+  --color-hover: #f6f5f1;
+
+  /* 글자 */
+  --color-ink: #1f1f1f;
+  --color-ink-2: #4a4945;
+  --color-muted: #6b6a66;
+  --color-faint: #8a8984;
+
+  /* 선 */
+  --color-line: #e4e2dc;
+  --color-line-soft: #e8e6e0;
+  --color-field: #d9d7d0;
+  --color-line-strong: #9c9a93; /* 게시판 미리보기 표 머리선 */
+
+  /* 주색 */
+  --color-primary: #2a5599;
+  --color-primary-hover: #234a86;
+  --color-primary-strong: #1d3f75;
+  --color-primary-soft: #e4ebf6;
+  --color-nav-active: #e6ecf5;
+
+  /* 상태 */
+  --color-success: #2e6b3a;
+  --color-success-soft: #e2f0e3;
+  --color-warn: #a4470f;
+  --color-warn-soft: #fbe6d8;
+  --color-alert: #fbe9dd;
+  --color-alert-line: #f1d2bd;
+  --color-alert-ink: #7a5a45; /* 정제에서 제거된 원본 문장 */
+
+  /* 차트 — 수집 경로(종류 구분). dataviz 검증 통과 (흰 바탕, CVD ΔE 9.2 · 일반 ΔE 27.6).
+     청록은 대비 2.8:1 이라 툴팁·표 보기로 값을 함께 보여 준다 */
+  --color-series-news: #2a5599;
+  --color-series-board: #eb6834;
+  --color-series-url: #1baf7a;
+  /* 차트 — 키워드 관련도. 배지(주제 기사 초록 · 부분 언급 파랑 · 스쳐 지나감 회색)와 같은 계열.
+     회색은 '거의 무관'을 뜻해 일부러 채도를 뺐다 — 막대 아래 비율 글자가 함께 나온다 */
+  --color-rel-main: #2e6b3a;
+  --color-rel-partial: #4d82cc;
+  --color-rel-passing: #a3a098;
+
+  --radius-card: 14px;
+  --radius-control: 8px;
+
+  --animate-pulse-soft: pulse-soft 1.2s ease-in-out infinite;
+  --animate-toast-in: toast-in 0.2s ease-out;
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 8px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-primary-strong);
+    text-decoration: underline;
+  }
+  button {
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}

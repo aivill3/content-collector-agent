@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="MAIN-001 대시보드" data-screen-id="MAIN-001" style="display:flex;flex-direction:column;gap:24px">
+  <header data-ui-id="COMMON-001-U05" style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h1 style="margin:0;font-size:28px;font-weight:700">대시보드</h1>
+      <p style="margin:0;color:#6B6A66">새로 들어온 글, 수집 상태, 손볼 곳을 한 화면에서 확인합니다</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button type="button" data-ui-id="MAIN-001-U01" data-func-id="FN-DASH-005" onClick="{{ onRefresh }}" disabled="{{ refreshing }}" style="height:44px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F6F5F1">{{ refreshLabel }}</button>
+      <button type="button" data-ui-id="MAIN-001-U02" onClick="{{ onAdd }}" style="height:44px;padding:0 16px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer" style-hover="background:#234A86">+ 소스 추가</button>
+    </div>
+  </header>
+
+  <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+    <!-- Empty 상태 [추정] / [문구 확인 필요] -->
+    <div style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:48px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+      <h2 style="margin:0;font-size:18px">등록된 수집 소스가 없습니다</h2>
+      <p style="margin:0;color:#6B6A66;font-size:13px">[문구 확인 필요] 소스를 추가하면 수집 현황이 여기에 표시됩니다</p>
+      <button type="button" onClick="{{ onAdd }}" style="height:40px;padding:0 16px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">+ 소스 추가</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasData }}" hint-placeholder-val="{{ true }}">
+    <section data-ui-id="MAIN-001-U03" data-func-id="FN-DASH-001" aria-label="요약" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:24px">
+      <sc-for list="{{ cards }}" as="c" hint-placeholder-count="4">
+        <div style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:13px;color:#4A4945">{{ c.label }}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600;letter-spacing:-.5px">{{ c.value }}</span>
+          <span style="font-size:13px;color:#6B6A66">{{ c.sub }}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <sc-if value="{{ alert }}" hint-placeholder-val="{{ true }}">
+      <div data-ui-id="MAIN-001-U04" data-func-id="FN-DASH-002" role="status" style="display:flex;align-items:center;gap:20px;padding:16px 24px;border-radius:14px;background:#FBE9DD;border:1px solid #F1D2BD;flex-wrap:wrap">
+        <span style="color:#A4470F;font-weight:600;font-size:13px">점검 필요</span>
+        <span style="flex:1;min-width:240px;font-size:14px"><strong>{{ alert.name }}</strong> 최근 3회 연속 0건 — 사이트 구조 변경이 의심됩니다</span>
+        <a href="#/SOURCE-001" style="color:#A4470F;font-weight:700;text-decoration:underline">설정 확인</a>
+      </div>
+    </sc-if>
+
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+      <section data-func-id="FN-DASH-003" style="flex:1.9 1 520px;min-width:0;background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <h2 style="margin:0;font-size:16px;font-weight:700">최근 수집 콘텐츠</h2>
+        <div data-ui-id="MAIN-001-U05" role="tablist" aria-label="수집 경로" style="display:flex;gap:4px;padding:4px;background:#EBE9E4;border-radius:10px">
+          <sc-for list="{{ segs }}" as="g" hint-placeholder-count="4">
+            <button type="button" role="tab" aria-selected="{{ g.selected }}" onClick="{{ g.onClick }}" style="{{ g.style }}">{{ g.label }}</button>
+          </sc-for>
+        </div>
+        <div data-ui-id="MAIN-001-U06" style="display:flex;flex-direction:column">
+          <sc-for list="{{ recent }}" as="r" hint-placeholder-count="5">
+            <article style="padding:18px 0;border-bottom:1px solid #E8E6E0;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <sc-if value="{{ r.isNew }}" hint-placeholder-val="{{ false }}"><span style="padding:2px 10px;border-radius:999px;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700">NEW</span></sc-if>
+                <a href="{{ r.href }}" style="font-size:15px;font-weight:700;color:#1F1F1F">{{ r.title }}</a>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:#6B6A66">
+                <span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:12px;font-weight:600">{{ r.typeLabel }}</span>
+                <span>{{ r.meta }}</span>
+                <sc-if value="{{ r.rel }}" hint-placeholder-val="{{ false }}"><span style="{{ r.rel.style }}">{{ r.rel.label }}</span></sc-if>
+              </div>
+              <p style="margin:0;font-size:13px;color:#8A8984;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.summary }}</p>
+            </article>
+          </sc-for>
+          <sc-if value="{{ recentEmpty }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0;padding:24px 0;color:#6B6A66;font-size:13px;text-align:center">해당 유형의 최근 콘텐츠가 없습니다 [문구 확인 필요]</p>
+          </sc-if>
+        </div>
+        <p data-ui-id="MAIN-001-U07" style="margin:0;font-size:13px;color:#6B6A66">회색 = 수집 경로 · 색 배지 = 키워드 관련도 (뉴스 키워드 수집분에만 표시)</p>
+        <a data-ui-id="MAIN-001-U08" href="#/CONTENT-001" style="font-weight:700;font-size:14px">전체 콘텐츠 보기</a>
+      </section>
+
+      <section data-func-id="FN-DASH-004" style="flex:1 1 300px;min-width:0;background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2 style="margin:0;font-size:16px;font-weight:700">소스별 현황</h2>
+          <!-- [확인 필요] "지금 수집" 대상 — 전체 소스로 가정 -->
+          <button type="button" data-ui-id="MAIN-001-U10" data-func-id="FN-COL-001" onClick="{{ onCollectAll }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F6F5F1">지금 수집</button>
+        </div>
+        <table data-ui-id="MAIN-001-U09" style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">소스</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">최근 상태</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">최근 신규</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ srcRows }}" as="s" hint-placeholder-count="4">
+              <tr>
+                <td style="padding:13px 8px 13px 0;border-bottom:1px solid #E8E6E0">{{ s.name }}</td>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0"><span style="{{ s.badge.style }}">{{ s.badge.label }}</span></td>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ s.recent }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <p style="margin:0;font-size:13px;color:#6B6A66;line-height:1.6">최근 신규 = 마지막 수집에서 새로 저장된 글 수 (정기·수동 모두) · — 는 아직 수집 전</p>
+        <a data-ui-id="MAIN-001-U11" href="#/SOURCE-001" style="font-weight:700">수집 소스 관리</a>
+      </section>
+    </div>
+
+    <section style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0;font-size:16px;font-weight:700">수집 작업 이력</h2>
+        <a data-ui-id="MAIN-001-U13" href="#/JOB-001" style="font-weight:700;font-size:14px">작업 이력 전체</a>
+      </div>
+      <div style="overflow-x:auto">
+        <table data-ui-id="MAIN-001-U12" style="width:100%;border-collapse:collapse;font-size:14px;min-width:760px">
+          <thead><tr>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">실행 시각</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">소스</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">방식</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">소요</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">상태</th>
+            <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">단계별 건수 / 사유</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ jobRows }}" as="j" hint-placeholder-count="4">
+              <tr>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ j.time }}</td>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0">{{ j.source }}</td>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0"><span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:12px;font-weight:600">{{ j.mode }}</span></td>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ j.dur }}</td>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0"><span style="{{ j.badge.style }}">{{ j.badge.label }}</span></td>
+                <td style="padding:13px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ j.detail }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TONES = { gray: ['#EBE9E4', '#4A4945'], green: ['#E2F0E3', '#2E6B3A'], orange: ['#FBE6D8', '#A4470F'], blue: ['#E4EBF6', '#2A5599'] };
+const badge = (label, t) => ({ label, style: { display: 'inline-flex', padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', background: TONES[t][0], color: TONES[t][1] } });
+const STATUS = { success: ['성공', 'green'], zero3: ['0건 3회', 'orange'], robots: ['robots 차단', 'orange'], idle: ['대기', 'gray'], queued: ['대기', 'gray'], running: ['실행 중', 'blue'], fail: ['실패', 'orange'] };
+const REL = { main: ['주제 기사', 'green'], partial: ['부분 언급', 'blue'], passing: ['스쳐 지나감', 'gray'] };
+const TYPE = { news: '뉴스', board: '게시판', url: 'URL' };
+const segStyle = (on) => ({ height: 36, padding: '0 14px', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: on ? 700 : 500, cursor: 'pointer', background: on ? '#fff' : 'transparent', color: on ? '#1F1F1F' : '#4A4945', boxShadow: on ? '0 1px 2px rgba(0,0,0,.08)' : 'none' });
+
+class Component extends DCLogic {
+  state = { seg: 'all', refreshing: false };
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const d = st.dashboard;
+    const byType = (t) => st.sources.filter((s) => s.type === t).length;
+    const cards = [
+      { label: '오늘 수집된 콘텐츠', value: `${st.contents.filter((c) => c.daysAgo === 0).length}건`, sub: `어제 대비 ${d.delta >= 0 ? '+' : ''}${d.delta}건` },
+      { label: '활성 수집 소스', value: `${st.sources.length}개`, sub: `뉴스 ${byType('news')} · 게시판 ${byType('board')} · URL ${byType('url')}` },
+      { label: '최근 7일 수집 성공률', value: `${d.successRate}%`, sub: `실패 ${st.jobs.filter((j) => j.status === 'fail').length}건` },
+      { label: '다음 예정 수집', value: d.nextTime, sub: d.nextSource },
+    ];
+    const bad = st.sources.find((s) => s.status === 'zero3');
+    const segs = [['all', '전체'], ['news', '뉴스'], ['board', '게시판'], ['url', 'URL']].map(([id, label]) => ({
+      label, selected: this.state.seg === id ? 'true' : 'false', style: segStyle(this.state.seg === id), onClick: () => this.setState({ seg: id }),
+    }));
+    const recent = st.contents.filter((c) => this.state.seg === 'all' || c.type === this.state.seg).slice(0, 5).map((c) => {
+      const src = st.sources.find((s) => s.id === c.sourceId);
+      const via = c.type === 'news' ? `키워드 '${c.keyword}'` : c.type === 'board' ? `'${src ? src.name : ''}'` : '';
+      return {
+        isNew: c.isNew, title: c.title, href: `#/CONTENT-002?id=${c.id}`, typeLabel: TYPE[c.type],
+        meta: [c.outlet, c.published.slice(5, 10), via].filter(Boolean).join(' · '),
+        rel: c.type === 'news' && c.relevance ? badge(...REL[c.relevance]) : null, summary: c.summary,
+      };
+    });
+    const srcRows = st.sources.slice(0, 5).map((s) => ({ name: s.name, badge: badge(...STATUS[s.status]), recent: s.recentNew == null ? '—' : s.recentNew > 0 ? `+${s.recentNew}` : '0' }));
+    const jobRows = st.jobs.slice(0, 4).map((j) => {
+      const src = st.sources.find((s) => s.id === j.sourceId);
+      return {
+        time: j.time, source: src ? src.name : '—', mode: j.mode, dur: j.dur == null ? '—' : `${j.dur}초`, badge: badge(...STATUS[j.status]),
+        detail: j.status === 'success' ? `검색 ${j.stages.search} → 정제 통과 ${j.stages.clean}` : j.status === 'fail' ? j.reason : '—',
+      };
+    });
+    const isEmpty = st.sources.length === 0;
+    return {
+      cards, alert: bad ? { name: bad.name } : null, segs, recent, recentEmpty: recent.length === 0, srcRows, jobRows,
+      isEmpty, hasData: !isEmpty,
+      refreshing: this.state.refreshing, refreshLabel: this.state.refreshing ? '새로고침 중…' : '새로고침',
+      // FUNC: FN-DASH-005
+      onRefresh: () => { this.setState({ refreshing: true }); setTimeout(() => this.setState({ refreshing: false }), 700); },
+      onAdd: () => app.nav('SOURCE-002'),
+      onCollectAll: () => app.runCollect(st.sources.map((s) => s.id)),
+    };
+  }
+}
+</script>
+</body>
+</html>

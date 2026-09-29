@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="CONTENT-002/003 콘텐츠 상세" data-screen-id="{{ screenId }}" style="display:flex;flex-direction:column;gap:24px">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1 style="margin:0;font-size:28px;font-weight:700">콘텐츠 상세</h1>
+    <p style="margin:0;color:#6B6A66">본문과 형태소 지표, 키워드 관련도를 함께 봅니다</p>
+  </header>
+
+  <sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+    <div role="alert" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:32px;display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+      <strong>글을 찾을 수 없습니다</strong>
+      <span style="font-size:13px;color:#6B6A66">[확인 필요] 삭제된 글 처리 정책 미정</span>
+      <a href="#/CONTENT-001" style="font-weight:600">← 콘텐츠 목록</a>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ c }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+      <article style="flex:1.75 1 520px;min-width:0;background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px;min-height:720px">
+        <a data-ui-id="CONTENT-002-U01" href="#/CONTENT-001" style="font-size:13px;font-weight:600">← 콘텐츠 목록</a>
+        <h2 data-ui-id="CONTENT-002-U02" style="margin:0;font-size:24px;font-weight:700;text-wrap:pretty">{{ c.title }}</h2>
+        <div data-ui-id="CONTENT-002-U03" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:#6B6A66">
+          <span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:12px;font-weight:600">{{ c.typeLabel }}</span>
+          <span>{{ c.meta }}</span>
+          <sc-if value="{{ c.rel }}" hint-placeholder-val="{{ false }}"><span style="{{ c.rel.style }}">{{ c.rel.label }}</span></sc-if>
+        </div>
+        <div style="display:flex;gap:8px">
+          <a data-ui-id="CONTENT-002-U04" data-func-id="FN-CNT-005" href="{{ c.url }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;color:#1F1F1F;font-size:14px;font-weight:600;text-decoration:none">원문 열기</a>
+          <button type="button" data-ui-id="CONTENT-002-U05" data-func-id="FN-CNT-006" onClick="{{ onCopy }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F6F5F1">복사</button>
+        </div>
+        <div data-ui-id="CONTENT-002-U06" role="tablist" aria-label="본문 보기" style="display:flex;gap:24px;border-bottom:1px solid #E4E2DC;margin-top:6px">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+            <button type="button" role="tab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ isClean }}" hint-placeholder-val="{{ true }}">
+          <div data-ui-id="CONTENT-002-U07" style="display:flex;flex-direction:column;gap:14px;font-size:15px;line-height:1.8;color:#2B2A27">
+            <sc-for list="{{ cleanParas }}" as="p" hint-placeholder-count="5"><p style="margin:0">{{ p }}</p></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isOrig }}" hint-placeholder-val="{{ false }}">
+          <p data-ui-id="CONTENT-003-U07" style="margin:0;font-size:13px;color:#6B6A66;line-height:1.6">수집 직후 추출된 그대로의 본문입니다. 정제 규칙이 지운 부분을 주황색으로 표시합니다 — 필요한 내용이 지워졌다면 여기서 확인합니다</p>
+          <div data-ui-id="CONTENT-003-U08" data-func-id="FN-CNT-004" style="display:flex;flex-direction:column;gap:10px;font-size:15px;line-height:1.8;color:#2B2A27">
+            <sc-for list="{{ origBlocks }}" as="b" hint-placeholder-count="6">
+              <sc-if value="{{ b.plain }}" hint-placeholder-val="{{ true }}"><p style="margin:0">{{ b.text }}</p></sc-if>
+              <sc-if value="{{ b.removed }}" hint-placeholder-val="{{ false }}">
+                <div data-ui-id="CONTENT-003-U09" style="display:flex;justify-content:space-between;gap:16px;align-items:center;padding:8px 12px;border-radius:6px;background:#FBE9DD;flex-wrap:wrap">
+                  <span style="color:#7A5A45;font-size:14px">{{ b.text }}</span>
+                  <span style="color:#A4470F;font-size:12px;font-weight:600;white-space:nowrap">정제에서 제거: {{ b.reason }}</span>
+                </div>
+              </sc-if>
+            </sc-for>
+          </div>
+        </sc-if>
+      </article>
+
+      <aside style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:16px">
+        <sc-if value="{{ c.isNews }}" hint-placeholder-val="{{ true }}">
+          <section data-ui-id="CONTENT-002-U08" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column">
+            <h3 style="margin:0 0 16px;font-size:16px;font-weight:700">키워드 관련도</h3>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px">
+              <span style="font-weight:600">등록 키워드 '{{ c.keyword }}'</span>
+              <span style="{{ c.rel.style }}">{{ c.rel.label }}</span>
+            </div>
+            <sc-for list="{{ relRows }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #E8E6E0"><span>{{ r.k }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.v }}</span></div>
+            </sc-for>
+            <p style="margin:14px 0 8px;font-size:13px;color:#6B6A66">판정 기준: 제목 포함 시 밀도 {{ crit.dens }} 이상, 최소 언급 {{ crit.min }}회 —</p>
+            <a href="#/SETTING-001" style="font-weight:600">분석 설정</a>
+          </section>
+        </sc-if>
+
+        <section data-ui-id="CONTENT-002-U09" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column">
+          <h3 style="margin:0 0 8px;font-size:16px;font-weight:700">글 단위 지표</h3>
+          <sc-for list="{{ metricRows }}" as="m" hint-placeholder-count="6">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #E8E6E0">
+              <span>{{ m.k }}</span>
+              <span style="display:flex;gap:10px;align-items:center">
+                <sc-if value="{{ m.warn }}" hint-placeholder-val="{{ false }}"><span style="{{ m.warnStyle }}">{{ m.warn }}</span></sc-if>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{ m.v }}</span>
+              </span>
+            </div>
+          </sc-for>
+        </section>
+
+        <section data-ui-id="CONTENT-002-U10" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px">
+          <h3 style="margin:0;font-size:16px;font-weight:700">상위 키워드</h3>
+          <p style="margin:0;font-size:13px;color:#6B6A66">분모: {{ basis.denom }} · 품사: {{ basis.pos }} (분석 설정 기준)</p>
+          <table style="width:100%;border-collapse:collapse;font-size:14px">
+            <thead><tr>
+              <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">#</th>
+              <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">단어</th>
+              <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">품사</th>
+              <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">횟수</th>
+              <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">밀도</th>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ topWords }}" as="w" hint-placeholder-count="7">
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-size:13px">{{ w.i }}</td>
+                  <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ w.w }}</td>
+                  <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:11px;font-weight:700">{{ w.pos }}</span></td>
+                  <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ w.n }}</td>
+                  <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ w.d }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <div data-ui-id="CONTENT-002-U11" data-func-id="FN-CNT-007" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:8px;flex-wrap:wrap">
+            <span style="font-size:13px;color:#6B6A66">{{ versionText }}</span>
+            <button type="button" onClick="{{ onReanalyze }}" disabled="{{ reanalyzing }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#F6F5F1">{{ reanalyzeLabel }}</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TONES = { gray: ['#EBE9E4', '#4A4945'], green: ['#E2F0E3', '#2E6B3A'], blue: ['#E4EBF6', '#2A5599'] };
+const badge = (label, t) => ({ label, style: { display: 'inline-flex', padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', background: TONES[t][0], color: TONES[t][1] } });
+const REL = { main: ['주제 기사', 'green'], partial: ['부분 언급', 'blue'], passing: ['스쳐 지나감', 'gray'] };
+const TYPE = { news: '뉴스', board: '게시판', url: 'URL' };
+const tabStyle = (on) => ({ padding: '10px 2px', background: 'none', border: 'none', borderBottom: on ? '2px solid #2A5599' : '2px solid transparent', marginBottom: -1, fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#1F1F1F' : '#4A4945', cursor: 'pointer' });
+
+class Component extends DCLogic {
+  state = { reanalyzing: false };
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const raw = st.contents.find((x) => x.id === app.params.id) || (app.params.id ? null : st.contents[0]);
+    const isOrig = app.route === 'CONTENT-003';
+    const set = st.settings;
+    const base = {
+      screenId: isOrig ? 'CONTENT-003' : 'CONTENT-002', notFound: !raw, c: null, isClean: !isOrig, isOrig,
+    };
+    if (!raw) return base;
+    const c = {
+      ...raw, typeLabel: TYPE[raw.type], isNews: raw.type === 'news',
+      meta: [raw.outlet, `발행 ${raw.published}`, `수집 ${raw.collected}`, raw.keyword ? `키워드 '${raw.keyword}'` : null].filter(Boolean).join(' · '),
+      rel: raw.relevance ? badge(...REL[raw.relevance]) : null,
+    };
+    const m = raw.metrics;
+    const ttrLow = m.ttr < set.ttrWarn;
+    const allMetrics = [
+      ['tokens', '전체 토큰 수', m.tokens], ['unique', '고유 토큰 수', m.unique], ['nouns', '명사 수', m.nouns],
+      ['sentences', '문장 수', m.sentences], ['avgLen', '문장당 평균 글자 수', m.avgLen.toFixed(1)], ['ttr', '어휘 다양도', m.ttr.toFixed(2)],
+    ];
+    // [추정] 표시 항목은 SETTING-001-U04 '표시할 지표' 설정을 따른다
+    const metricRows = allMetrics.filter(([k]) => set.metrics[k]).map(([k, label, v]) => ({
+      k: label, v,
+      warn: k === 'ttr' ? `기준 ${set.ttrWarn.toFixed(2)} 미만 시 경고` : '',
+      warnStyle: { fontSize: 12, color: '#A4470F', fontWeight: ttrLow ? 700 : 400 },
+    }));
+    const origBlocks = [];
+    raw.paragraphs.forEach((p, i) => {
+      origBlocks.push({ plain: true, removed: false, text: p });
+      raw.removed.filter((r) => r.after === i).forEach((r) => origBlocks.push({ plain: false, removed: true, text: r.text, reason: r.reason }));
+    });
+    const ver = raw.analyzedVersion;
+    return {
+      ...base, c,
+      tabs: [['CONTENT-002', '정제 본문'], ['CONTENT-003', '원본 본문 (정제 전)']].map(([id, label]) => ({
+        label, selected: app.route === id ? 'true' : 'false', style: tabStyle(app.route === id), onClick: () => app.nav(id, { id: raw.id }),
+      })),
+      cleanParas: raw.paragraphs, origBlocks,
+      relRows: [
+        { k: '언급 횟수', v: `${raw.mentions}회` }, { k: '1,000자당 밀도', v: raw.density.toFixed(2) },
+        { k: '제목 포함', v: raw.titleHas ? '예' : '아니요' }, { k: '본문 길이', v: `${raw.length.toLocaleString()}자` },
+      ],
+      crit: { dens: set.densTitle.toFixed(1), min: set.minMentions },
+      metricRows,
+      basis: { denom: set.denom === 'content' ? '내용어 전체' : '명사', pos: { noun: '명사만', vva: '명사+동사·형용사', foreign: '명사+동사·형용사+외국어' }[set.posRange] },
+      topWords: raw.topWords.slice(0, set.topN).map((w, i) => ({ i: i + 1, w: w.w, pos: w.pos, n: w.n, d: `${w.d.toFixed(1)}%` })),
+      versionText: `분석 설정 v${ver}으로 분석됨${raw.staleDict ? ' (사용자 사전 변경 이전)' : ''}`,
+      reanalyzing: this.state.reanalyzing, reanalyzeLabel: this.state.reanalyzing ? '재분석 중…' : '재분석',
+      // FUNC: FN-CNT-006 — 복사 대상은 정제 본문으로 가정 [확인 필요]
+      onCopy: async () => {
+        const text = raw.title + '\n\n' + raw.paragraphs.join('\n\n');
+        try { await navigator.clipboard.writeText(text); app.toast('본문을 복사했습니다'); } catch (e) { app.toast('복사하지 못했습니다 [문구 확인 필요]'); }
+      },
+      // FUNC: FN-CNT-007
+      onReanalyze: async () => {
+        this.setState({ reanalyzing: true });
+        await app.api.reanalyze();
+        app.update((s) => ({ ...s, contents: s.contents.map((x) => (x.id === raw.id ? { ...x, analyzedVersion: s.settings.version, staleDict: false } : x)) }));
+        this.setState({ reanalyzing: false });
+        app.toast('이 글을 현재 분석 설정으로 재분석했습니다');
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="ANALYSIS-001 키워드 분석" data-screen-id="ANALYSIS-001" style="display:flex;flex-direction:column;gap:24px">
+  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h1 style="margin:0;font-size:28px;font-weight:700">키워드 분석</h1>
+      <p style="margin:0;color:#6B6A66">수집된 글에서 무슨 이야기가 많은지, 등록 키워드가 잘 맞는지 봅니다</p>
+    </div>
+    <div data-func-id="FN-ANL-007" style="display:flex;gap:8px;align-items:center">
+      <div data-ui-id="ANALYSIS-001-U01" role="radiogroup" aria-label="분석 기간" style="display:flex;gap:2px;padding:4px;background:#EBE9E4;border-radius:10px">
+        <sc-for list="{{ periods }}" as="p" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{ p.checked }}" onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</button></sc-for>
+      </div>
+      <!-- [확인 필요] 소스 선택 UI 미정 — 버튼 모양의 Select로 구현 -->
+      <select data-ui-id="ANALYSIS-001-U02" aria-label="소스" value="{{ srcFilter }}" onChange="{{ onSrcFilter }}" style="height:44px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">
+        <option value="all">전체 소스</option>
+        <sc-for list="{{ srcOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+      </select>
+    </div>
+  </header>
+
+  <div data-ui-id="ANALYSIS-001-U03" style="background:#fff;border:1px solid #E4E2DC;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;color:#4A4945">
+    <span>적용 중인 분석 설정:</span>
+    <span style="padding:3px 10px;border-radius:999px;background:#E4EBF6;color:#2A5599;font-size:12px;font-weight:700">{{ presetLabel }}</span>
+    <span style="flex:1">{{ basisText }}</span>
+    <a href="#/SETTING-001" style="font-weight:700">설정 변경</a>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:24px;align-items:stretch">
+    <section data-ui-id="ANALYSIS-001-U04" data-func-id="FN-ANL-001" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">핵심어 순위</h2>
+      <p style="margin:0;font-size:13px;color:#6B6A66">순위 기준: 등장한 글 수 · 평균 밀도가 높으면 중심어, 낮으면 배경어</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0;width:36px">#</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">단어</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">등장 글</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">평균 밀도</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:8px 0;border-bottom:1px solid #E8E6E0">성격</th>
+        </tr></thead>
+        <tbody><sc-for list="{{ core }}" as="c" hint-placeholder-count="8"><tr>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-size:13px">{{ c.i }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">{{ c.w }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ c.docs }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ c.d }}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="{{ c.kind.style }}">{{ c.kind.label }}</span></td>
+        </tr></sc-for></tbody>
+      </table>
+      <sc-if value="{{ noData }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:16px 0;text-align:center;font-size:13px;color:#6B6A66">분석할 수집 데이터가 없습니다 [문구 확인 필요]</p></sc-if>
+    </section>
+
+    <section data-ui-id="ANALYSIS-001-U05" data-func-id="FN-ANL-002" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">급상승 키워드</h2>
+      <p style="margin:0 0 6px;font-size:13px;color:#6B6A66">최근 7일 등장 글 수 ÷ 직전 4주 주평균</p>
+      <sc-for list="{{ rising }}" as="r" hint-placeholder-count="6">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #E8E6E0">
+          <span style="flex:1">{{ r.w }}</span>
+          <span style="font-size:13px;color:#4A4945">{{ r.n }}건</span>
+          <span style="padding:2px 10px;border-radius:999px;background:#FBE6D8;color:#A4470F;font-size:12px;font-weight:700">▲ {{ r.x }}배</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <section data-ui-id="ANALYSIS-001-U06" data-func-id="FN-ANL-003" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">키워드별 수집 적중도</h2>
+      <p style="margin:0;font-size:13px;color:#6B6A66;line-height:1.6">검색 결과에는 키워드가 한 번만 나와도 포함됩니다. 모은 글 중 그 키워드가 실제로 주된 내용인 글이 얼마나 되는지 봅니다</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#4A4945">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#2E6B3A;border-radius:2px"></span>주제 기사 — 키워드가 주된 내용</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#7C9ED3;border-radius:2px"></span>부분 언급 — 일부 단락만 다룸</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#CFCCC4;border-radius:2px"></span>스쳐 지나감 — 한두 번 언급</span>
+      </div>
+      <sc-for list="{{ hits }}" as="h" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid #E8E6E0">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span style="font-size:14px"><strong>{{ h.kw }}</strong> 로 모은 글 {{ h.n }}건</span>
+            <sc-if value="{{ h.warn }}" hint-placeholder-val="{{ false }}"><span style="padding:2px 10px;border-radius:999px;background:#FBE6D8;color:#A4470F;font-size:12px;font-weight:700">키워드 수정 권장</span></sc-if>
+          </div>
+          <div role="img" aria-label="{{ h.aria }}" style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:#CFCCC4">
+            <span style="{{ h.mainStyle }}"></span><span style="{{ h.partialStyle }}"></span>
+          </div>
+          <span style="font-size:12px;color:#4A4945">주된 내용 {{ h.main }}% · 일부만 다룸 {{ h.partial }}% · 한두 번 언급 {{ h.passing }}%</span>
+        </div>
+      </sc-for>
+      <!-- 권장 배지 기준 [정책 필요] — MOCK: 스쳐 지나감 50% 이상 -->
+      <p style="margin:0;font-size:13px;color:#4A4945;line-height:1.6">'한두 번 언급'이 많으면 키워드가 너무 넓거나 다른 뜻으로 쓰이는 경우 → 키워드를 좁히거나 바꾸세요</p>
+    </section>
+
+    <section data-ui-id="ANALYSIS-001-U07" data-func-id="FN-ANL-004" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">연관어</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">기준 소스
+          <select value="{{ relSrc }}" onChange="{{ onRelSrc }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+            <sc-for list="{{ newsSources }}" as="o" hint-placeholder-count="2"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">기준 키워드
+          <select value="{{ relKw }}" onChange="{{ onRelKw }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+            <sc-for list="{{ kwOptions }}" as="o" hint-placeholder-count="2"><option value="{{ o }}">{{ o }}</option></sc-for>
+          </select>
+        </label>
+      </div>
+      <p style="margin:0;font-size:13px;color:#6B6A66">이 키워드로 모은 글에 함께 자주 나온 단어 (함께 나온 글 수 순)</p>
+      <div ref="{{ chipWrap }}" style="position:relative">
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6">
+            <button type="button" onClick="{{ c.onClick }}" aria-haspopup="menu" aria-expanded="{{ c.expanded }}" style="{{ c.style }}">{{ c.w }} <span style="font-size:12px;color:#6B6A66">{{ c.n }}</span></button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ pop }}" hint-placeholder-val="{{ false }}">
+          <!-- ANALYSIS-001-P01 연관어 액션 메뉴 · Esc/바깥 클릭 닫기 [추정] -->
+          <div data-screen-id="ANALYSIS-001-P01" role="menu" aria-label="{{ pop.aria }}" style="position:absolute;left:0;top:calc(100% + 8px);width:300px;background:#fff;border:1px solid #E4E2DC;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:6px;z-index:20;display:flex;flex-direction:column">
+            <button type="button" role="menuitem" data-ui-id="ANALYSIS-001-P01-U01" onClick="{{ pop.onAddKw }}" disabled="{{ pop.kwExists }}" style="text-align:left;padding:12px;border:none;background:none;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px" style-hover="background:#F3F2EE">
+              <strong style="font-size:14px">검색 키워드로 추가</strong>
+              <span style="font-size:12px;color:#4A4945">{{ pop.addDesc }}</span>
+            </button>
+            <button type="button" role="menuitem" data-ui-id="ANALYSIS-001-P01-U02" onClick="{{ pop.onStop }}" disabled="{{ pop.stopExists }}" style="text-align:left;padding:12px;border:none;background:none;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px" style-hover="background:#F3F2EE">
+              <strong style="font-size:14px">불용어로 등록</strong>
+              <span style="font-size:12px;color:#4A4945">{{ pop.stopDesc }}</span>
+            </button>
+            <button type="button" role="menuitem" data-ui-id="ANALYSIS-001-P01-U03" onClick="{{ pop.onView }}" style="text-align:left;padding:12px;border:none;background:none;border-radius:6px;cursor:pointer" style-hover="background:#F3F2EE"><strong style="font-size:14px">이 단어가 나온 글 보기</strong></button>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ noChips }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:13px;color:#6B6A66">연관어가 없습니다 [문구 확인 필요]</p></sc-if>
+      <p style="margin:0;font-size:13px;color:#6B6A66">추가한 검색 키워드는 수집 소스 › '{{ relSrcName }}' 편집 화면의 키워드 목록에서 확인합니다</p>
+    </section>
+  </div>
+
+  <section data-ui-id="ANALYSIS-001-U08" data-func-id="FN-ANL-006" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2 style="margin:0;font-size:16px;font-weight:700">일별 수집 추이</h2>
+      <div role="radiogroup" aria-label="추이 기간" style="display:flex;gap:2px;padding:4px;background:#EBE9E4;border-radius:10px">
+        <sc-for list="{{ chartSegs }}" as="p" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{ p.checked }}" onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</button></sc-for>
+      </div>
+    </div>
+    <div role="img" aria-label="{{ chartAria }}" style="display:flex;align-items:flex-end;gap:3px;height:170px;border-bottom:1px solid #E4E2DC">
+      <sc-for list="{{ bars }}" as="b" hint-placeholder-count="30">
+        <div title="{{ b.title }}" style="flex:1;display:flex;flex-direction:column-reverse;height:100%;justify-content:flex-start">
+          <span style="{{ b.news }}"></span><span style="{{ b.board }}"></span><span style="{{ b.url }}"></span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#4A4945">
+      <span>최근 {{ chartDays }}일 · 소스 유형별 누적</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#9FB6DA;border-radius:2px"></span>뉴스</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#5C7FB8;border-radius:2px"></span>게시판</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#2A5599;border-radius:2px"></span>URL</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const segStyle = (on) => ({ height: 36, padding: '0 14px', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: on ? 700 : 500, cursor: 'pointer', background: on ? '#fff' : 'transparent', color: on ? '#1F1F1F' : '#4A4945', boxShadow: on ? '0 1px 2px rgba(0,0,0,.08)' : 'none' });
+const pill = (bg, c) => ({ display: 'inline-flex', padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, background: bg, color: c });
+const PRESET = { strict: '엄격 프리셋', normal: '보통 프리셋', loose: '느슨 프리셋', custom: '사용자 지정' };
+const pad = (n) => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+class Component extends DCLogic {
+  state = { period: '7', srcFilter: 'all', chart: 30, relSrc: null, relKw: null, openChip: null };
+  chipWrap = React.createRef();
+  componentDidMount() {
+    this.onDoc = (e) => { if (this.state.openChip != null && this.chipWrap.current && !this.chipWrap.current.contains(e.target)) this.setState({ openChip: null }); };
+    this.onKey = (e) => { if (e.key === 'Escape') this.setState({ openChip: null }); };
+    document.addEventListener('mousedown', this.onDoc);
+    document.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { document.removeEventListener('mousedown', this.onDoc); document.removeEventListener('keydown', this.onKey); }
+
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const set = st.settings;
+    const stop = new Set(st.stopwords.filter((x) => x.on).map((x) => x.word));
+    const mult = this.state.period === '30' ? 4 : 1; // MOCK: 30일 집계
+    const core = st.analysis.core.filter((c) => !stop.has(c.w)).slice(0, 8).map((c, i) => ({
+      i: i + 1, w: c.w, docs: c.docs * mult, d: `${c.d.toFixed(1)}%`,
+      kind: c.kind === 'center' ? { label: '중심어', style: pill('#E4EBF6', '#2A5599') } : { label: '배경어', style: pill('#EBE9E4', '#4A4945') }, // 경계값 [정책 필요]
+    }));
+    const hits = st.analysis.hit.map((h) => ({
+      ...h, n: h.n * mult, warn: h.passing >= 50, aria: `주된 내용 ${h.main}%, 일부만 다룸 ${h.partial}%, 한두 번 언급 ${h.passing}%`,
+      mainStyle: { width: h.main + '%', background: '#2E6B3A' }, partialStyle: { width: h.partial + '%', background: '#7C9ED3' },
+    }));
+
+    const newsSources = st.sources.filter((s) => s.type === 'news');
+    const relSrc = newsSources.find((s) => s.id === this.state.relSrc) || newsSources[0];
+    const kwOptions = relSrc ? relSrc.keywords.map((k) => k.kw) : [];
+    const relKw = kwOptions.includes(this.state.relKw) ? this.state.relKw : kwOptions[0];
+    const related = (st.analysis.related[relKw] || []).map(([w, n]) => ({ w, n }));
+    const oc = this.state.openChip;
+    const chips = related.map((r, i) => ({
+      w: r.w, n: r.n, expanded: oc === i ? 'true' : 'false',
+      onClick: () => this.setState({ openChip: oc === i ? null : i }),
+      style: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 999, fontSize: 13, cursor: 'pointer', background: oc === i ? '#E6ECF5' : '#fff', border: oc === i ? '2px solid #2A5599' : '1px solid #D9D7D0', margin: oc === i ? 0 : 1, color: '#1F1F1F' },
+    }));
+    let pop = null;
+    if (oc != null && related[oc] && relSrc) {
+      const w = related[oc].w;
+      const kwExists = relSrc.keywords.some((k) => k.kw === w);
+      const stopExists = st.stopwords.some((x) => x.word === w);
+      pop = {
+        aria: `'${w}' 작업`, kwExists, stopExists,
+        addDesc: kwExists ? '이미 이 소스의 검색 키워드입니다 [추정]' : `'${relSrc.name}' 소스가 이 단어로도 검색`,
+        stopDesc: stopExists ? '이미 불용어에 있습니다 [추정]' : '의미 없는 단어면 순위에서 제외',
+        // FUNC: FN-ANL-005 — 이동 여부 vs 토스트만 [확인 필요] → 기획서 동작 열 기준 이동
+        onAddKw: () => {
+          app.update((s) => ({ ...s, sources: s.sources.map((x) => (x.id === relSrc.id ? { ...x, keywords: [...x.keywords, { kw: w, origin: '키워드 분석 연관어', added: today(), recent: null }], target: [...x.keywords.map((k) => k.kw), w].join(', ') } : x)) }));
+          this.setState({ openChip: null });
+          app.toast(`'${w}'을(를) '${relSrc.name}' 검색 키워드에 추가했습니다`);
+          app.nav('SOURCE-002', { id: relSrc.id });
+        },
+        onStop: () => {
+          app.update((s) => ({ ...s, stopwords: [{ id: 'D' + Date.now().toString(36), word: w, origin: '키워드 분석에서 추가', target: 'default', added: today(), on: true }, ...s.stopwords] }));
+          this.setState({ openChip: null });
+          app.toast(`'${w}'을(를) 불용어로 등록했습니다`);
+          app.nav('SETTING-002');
+        },
+        onView: () => { this.setState({ openChip: null }); app.nav('CONTENT-001', { q: w }); }, // 검색어 적용 [추정]
+      };
+    }
+
+    const days = this.state.chart;
+    const series = st.daily.slice(-days);
+    const max = Math.max(1, ...series.map((d) => d.news + d.board + d.url));
+    const seg = (v, c) => ({ display: 'block', height: `${(v / max) * 100}%`, background: c, borderRadius: 0 });
+    const bars = series.map((d, i) => ({ title: `D-${days - i}: ${d.news + d.board + d.url}건`, news: seg(d.news, '#9FB6DA'), board: seg(d.board, '#5C7FB8'), url: seg(d.url, '#2A5599') }));
+
+    return {
+      periods: [['7', '7일'], ['30', '30일']].map(([id, label]) => ({ label, checked: this.state.period === id ? 'true' : 'false', style: segStyle(this.state.period === id), onClick: () => this.setState({ period: id }) })),
+      srcFilter: this.state.srcFilter, srcOptions: st.sources.map((s) => ({ id: s.id, name: s.name })), onSrcFilter: (e) => this.setState({ srcFilter: e.target.value }),
+      presetLabel: PRESET[set.preset] || '사용자 지정',
+      basisText: `분모 ${set.denom === 'content' ? '내용어 전체' : '명사'} · ${{ noun: '명사만', vva: '명사+동사·형용사', foreign: '명사+동사·형용사+외국어' }[set.posRange]}`,
+      core, noData: core.length === 0, rising: st.analysis.rising.map((r) => ({ ...r, n: r.n * mult })), hits,
+      newsSources: newsSources.map((s) => ({ id: s.id, name: s.name })), relSrc: relSrc ? relSrc.id : '', relSrcName: relSrc ? relSrc.name : '[소스 이름]',
+      kwOptions, relKw: relKw || '', chips, noChips: chips.length === 0, pop, chipWrap: this.chipWrap,
+      onRelSrc: (e) => this.setState({ relSrc: e.target.value, relKw: null, openChip: null }),
+      onRelKw: (e) => this.setState({ relKw: e.target.value, openChip: null }),
+      chartSegs: [[30, '30일'], [90, '90일']].map(([id, label]) => ({ label, checked: days === id ? 'true' : 'false', style: segStyle(days === id), onClick: () => this.setState({ chart: id }) })),
+      bars, barGap: days > 30 ? 2 : 6, chartDays: days, chartAria: `최근 ${days}일 일별 수집 건수 막대 그래프`,
+    };
+  }
+}
+</script>
+</body>
+</html>

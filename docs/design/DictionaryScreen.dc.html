@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-screen-label="SETTING-002/003 사전" data-screen-id="{{ screenId }}" style="display:flex;flex-direction:column;gap:20px">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1 style="margin:0;font-size:28px;font-weight:700">사전</h1>
+    <p style="margin:0;color:#6B6A66">불용어와 사용자 사전을 표로 관리합니다. 수백 개도 검색·필터로 찾고 한 번에 추가·삭제합니다</p>
+  </header>
+  <div data-ui-id="{{ ui.tabs }}" role="tablist" aria-label="사전 종류" style="display:flex;gap:28px;border-bottom:1px solid #DAD8D2">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2"><button type="button" role="tab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+  </div>
+  <p style="margin:0;font-size:13px;color:#4A4945">{{ desc }}</p>
+
+  <sc-if value="{{ banner }}" hint-placeholder-val="{{ false }}">
+    <div data-ui-id="SETTING-003-U03" data-func-id="FN-DIC-006" role="status" style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-radius:14px;background:#FBE9DD;border:1px solid #F1D2BD;flex-wrap:wrap">
+      <span style="flex:1;min-width:260px;font-size:14px">아직 반영되지 않은 변경 <strong>{{ banner.n }}건</strong> — 새로 수집하는 글에는 바로 적용되고, 기존 글은 재분석해야 합니다</span>
+      <!-- 30일 범위 선택 가능 여부 [확인 필요] -->
+      <button type="button" onClick="{{ onReanalyze }}" disabled="{{ reanalyzing }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ reanalyzeLabel }}</button>
+    </div>
+  </sc-if>
+
+  <section data-func-id="FN-DIC-002" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:16px;font-weight:700">단어 추가</h2>
+    <div data-ui-id="{{ ui.add }}" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <label style="flex:2.4;min-width:220px;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">{{ wordLabel }}
+        <input value="{{ word }}" onChange="{{ onWord }}" onKeyDown="{{ onWordKey }}" aria-invalid="{{ wordInvalid }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none;width:100%" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+        <span style="font-size:12px;color:#6B6A66;font-weight:400">{{ wordHelp }}</span>
+        <span style="font-size:12px;color:#A4470F;font-weight:400">{{ wordErr }}</span>
+      </label>
+      <sc-if value="{{ isComp }}" hint-placeholder-val="{{ false }}">
+        <label style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">품사
+          <!-- 품사 선택지 [확인 필요] -->
+          <select value="{{ pos }}" onChange="{{ onPos }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="NNP">고유명사 (NNP)</option><option value="NNG">일반명사 (NNG)</option></select>
+        </label>
+      </sc-if>
+      <label style="flex:1.2;min-width:200px;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">적용 대상
+        <select value="{{ target }}" onChange="{{ onTarget }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+          <option value="default">내 기본값 (모든 소스)</option>
+          <sc-for list="{{ srcOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+        </select>
+      </label>
+      <button type="button" onClick="{{ onAdd }}" style="margin-top:25px;height:44px;padding:0 18px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">추가</button>
+    </div>
+    <div data-ui-id="{{ ui.bulk }}" data-func-id="FN-DIC-003" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:13px;color:#4A4945">여러 개를 한 번에: 줄바꿈이나 쉼표로 붙여넣거나 CSV 파일을 가져옵니다. 추가하면 표 맨 위에 바로 나타납니다</span>
+      <div style="display:flex;gap:8px">
+        <button type="button" onClick="{{ onPasteToggle }}" aria-expanded="{{ pasteOpenAttr }}" style="height:38px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">여러 개 붙여넣기</button>
+        <button type="button" onClick="{{ onCsvPick }}" style="height:38px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">CSV 가져오기</button>
+        <input type="file" accept=".csv,text/csv" ref="{{ fileRef }}" onChange="{{ onCsvFile }}" style="display:none">
+        <button type="button" onClick="{{ onCsvExport }}" style="height:38px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">CSV 내보내기</button>
+      </div>
+    </div>
+    <sc-if value="{{ pasteOpen }}" hint-placeholder-val="{{ false }}">
+      <!-- 붙여넣기 UI 미정 [확인 필요] — 인라인 입력창으로 구현 -->
+      <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:10px;background:#F6F5F1">
+        <textarea rows="4" value="{{ paste }}" onChange="{{ onPaste }}" aria-label="여러 개 붙여넣기" placeholder="줄바꿈 또는 쉼표로 구분" style="padding:10px 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;outline:none;resize:vertical"></textarea>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button type="button" onClick="{{ onPasteToggle }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">취소</button>
+          <button type="button" onClick="{{ onPasteAdd }}" style="height:36px;padding:0 14px;border:none;border-radius:8px;background:#2A5599;color:#fff;font-size:14px;font-weight:700;cursor:pointer">{{ pasteLabel }}</button>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+
+  <section data-func-id="FN-DIC-001" style="background:#fff;border:1px solid #E4E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div data-ui-id="{{ ui.tools }}" style="display:flex;flex-wrap:wrap;gap:16px">
+      <label style="flex:2.4 1 240px;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">목록 검색
+        <input type="search" value="{{ q }}" onChange="{{ onQ }}" style="height:40px;padding:0 12px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400;outline:none" style-focus="border-color:#2A5599;box-shadow:0 0 0 3px rgba(42,85,153,.15)">
+      </label>
+      <label style="flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">출처
+        <select value="{{ fOrigin }}" onChange="{{ onFOrigin }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+          <option value="all">전체</option><option value="직접 추가">직접 추가</option><option value="키워드 분석에서 추가">키워드 분석에서 추가</option><option value="CSV 가져오기">CSV 가져오기</option><option value="시스템 공통">시스템 공통</option>
+        </select>
+      </label>
+      <label style="flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">적용 대상
+        <select value="{{ fTarget }}" onChange="{{ onFTarget }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400">
+          <option value="all">전체</option><option value="default">내 기본값</option>
+          <sc-for list="{{ srcOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+        </select>
+      </label>
+      <label style="flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">정렬
+        <!-- 정렬 선택지 [확인 필요] -->
+        <select value="{{ sort }}" onChange="{{ onSort }}" style="height:40px;padding:0 10px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:400"><option value="recent">최근 추가순</option><option value="old">오래된순</option><option value="abc">가나다순</option></select>
+      </label>
+    </div>
+
+    <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+      <div data-ui-id="{{ ui.selbar }}" data-func-id="FN-DIC-005" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:#E6ECF5">
+        <span style="color:#2A5599;font-weight:700;font-size:14px">{{ selCount }}개 선택됨</span>
+        <div style="display:flex;gap:8px">
+          <button type="button" onClick="{{ onBulkOff }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">적용 끄기</button>
+          <button type="button" onClick="{{ onBulkDelete }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">선택 삭제</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="overflow-x:auto">
+      <table data-ui-id="{{ ui.table }}" style="width:100%;border-collapse:collapse;font-size:14px;min-width:820px">
+        <thead><tr>
+          <th scope="col" style="width:44px;text-align:left;padding:10px 0;border-bottom:1px solid #E8E6E0"><input type="checkbox" aria-label="전체 선택" checked="{{ allChecked }}" onChange="{{ onAll }}" style="width:18px;height:18px;margin:0;accent-color:#2A5599"></th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:10px 0;border-bottom:1px solid #E8E6E0">{{ wordLabel }}</th>
+          <sc-if value="{{ isComp }}" hint-placeholder-val="{{ false }}"><th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:10px 0;border-bottom:1px solid #E8E6E0">품사</th></sc-if>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:10px 0;border-bottom:1px solid #E8E6E0">출처</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:10px 0;border-bottom:1px solid #E8E6E0">적용 대상</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:10px 0;border-bottom:1px solid #E8E6E0">추가일</th>
+          <th scope="col" style="text-align:left;font-size:12px;font-weight:500;color:#4A4945;padding:10px 0;border-bottom:1px solid #E8E6E0">적용</th>
+          <th scope="col" style="border-bottom:1px solid #E8E6E0"></th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><input type="checkbox" aria-label="{{ r.selAria }}" checked="{{ r.checked }}" onChange="{{ r.onCheck }}" style="width:18px;height:18px;margin:0;accent-color:#2A5599"></td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-weight:700">
+                <span style="display:inline-flex;align-items:center;gap:8px">{{ r.word }}
+                  <sc-if value="{{ r.pending }}" hint-placeholder-val="{{ false }}"><span style="padding:2px 10px;border-radius:999px;background:#FBE6D8;color:#A4470F;font-size:12px;font-weight:600">미반영</span></sc-if>
+                </span>
+              </td>
+              <sc-if value="{{ isComp }}" hint-placeholder-val="{{ false }}"><td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="padding:2px 10px;border-radius:999px;background:#EBE9E4;color:#4A4945;font-size:11px;font-weight:700">{{ r.pos }}</span></td></sc-if>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0"><span style="{{ r.origin.style }}">{{ r.origin.label }}</span></td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;color:#4A4945">{{ r.target }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0;font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.added }}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">
+                <button type="button" role="switch" aria-checked="{{ r.on }}" aria-label="{{ r.toggleAria }}" onClick="{{ r.onToggle }}" style="{{ r.trackStyle }}"><span style="{{ r.knobStyle }}"></span></button>
+              </td>
+              <td style="padding:12px 0;border-bottom:1px solid #E8E6E0">
+                <sc-if value="{{ r.canDelete }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ r.onDelete }}" aria-label="{{ r.delAria }}" style="height:36px;padding:0 16px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">삭제</button></sc-if>
+                <sc-if value="{{ r.adminOnly }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#6B6A66">관리자만</span></sc-if>
+              </td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:24px 0;text-align:center;font-size:13px;color:#6B6A66">{{ emptyText }}</p></sc-if>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:13px;color:#6B6A66">총 {{ total }}개 · 50개씩 보기</span>
+      <nav aria-label="페이지" style="display:flex;gap:6px">
+        <button type="button" disabled="{{ atFirst }}" onClick="{{ onPrev }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">이전</button>
+        <sc-for list="{{ pages }}" as="p" hint-placeholder-count="1"><button type="button" aria-current="{{ p.current }}" onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.n }}</button></sc-for>
+        <button type="button" disabled="{{ atLast }}" onClick="{{ onNext }}" style="height:36px;padding:0 14px;border:1px solid #D9D7D0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer">다음</button>
+      </nav>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const pill = (bg, c) => ({ display: 'inline-flex', padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', background: bg, color: c });
+const tabStyle = (on) => ({ padding: '10px 2px', background: 'none', border: 'none', borderBottom: on ? '2px solid #2A5599' : '2px solid transparent', marginBottom: -1, fontSize: 14, fontWeight: 700, color: on ? '#1F1F1F' : '#4A4945', cursor: 'pointer' });
+const pageStyle = (on) => ({ height: 36, minWidth: 40, padding: '0 12px', border: on ? '1px solid #2A5599' : '1px solid #D9D7D0', borderRadius: 8, background: on ? '#E6ECF5' : '#fff', color: on ? '#2A5599' : '#1F1F1F', fontSize: 14, fontWeight: 700, cursor: 'pointer' });
+const PAGE = 50;
+const pad = (n) => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const INIT = { word: '', pos: 'NNP', target: 'default', wordErr: '', q: '', fOrigin: 'all', fTarget: 'all', sort: 'recent', sel: {}, page: 1, pasteOpen: false, paste: '', reanalyzing: false };
+
+class Component extends DCLogic {
+  state = { ...INIT };
+  fileRef = React.createRef();
+  componentDidUpdate(prev) { if (prev.app.route !== this.props.app.route) this.setState({ ...INIT }); }
+  get key() { return this.props.app.route === 'SETTING-003' ? 'compounds' : 'stopwords'; }
+
+  // FUNC: FN-DIC-002 / FN-DIC-003 — 중복은 건너뜀 [추정]
+  addWords(words, origin) {
+    const app = this.props.app;
+    const key = this.key;
+    const existing = new Set(app.store[key].map((x) => x.word));
+    const uniq = [];
+    words.map((w) => (typeof w === 'string' ? { word: w } : w)).forEach((w) => { const t = w.word.trim(); if (t && !existing.has(t)) { existing.add(t); uniq.push({ ...w, word: t }); } });
+    const items = uniq.map((w, i) => ({
+      id: 'D' + Date.now().toString(36) + i, word: w.word, origin, target: this.state.target, added: today(), on: true,
+      ...(key === 'compounds' ? { pos: w.pos || this.state.pos, pending: true } : {}),
+    }));
+    if (items.length) app.update((s) => ({ ...s, [key]: [...items, ...s[key]] }));
+    return { added: items.length, skipped: words.length - items.length };
+  }
+  csvCell(v) { return '"' + String(v ?? '').replace(/"/g, '""') + '"'; }
+
+  renderVals() {
+    const app = this.props.app;
+    const st = app.store;
+    const s = this.state;
+    const key = this.key;
+    const isComp = key === 'compounds';
+    const isAdmin = app.role === '관리자';
+    const srcName = (id) => (id === 'default' ? '내 기본값' : (st.sources.find((x) => x.id === id) || {}).name || id);
+    let list = st[key].filter((x) => (!s.q || x.word.includes(s.q)) && (s.fOrigin === 'all' || x.origin === s.fOrigin) && (s.fTarget === 'all' || x.target === s.fTarget));
+    if (s.sort === 'old') list = [...list].reverse();
+    if (s.sort === 'abc') list = [...list].sort((a, b) => a.word.localeCompare(b.word, 'ko'));
+    const pageCount = Math.max(1, Math.ceil(list.length / PAGE));
+    const page = Math.min(s.page, pageCount);
+    const pageItems = list.slice((page - 1) * PAGE, page * PAGE);
+    const selIds = Object.keys(s.sel).filter((id) => s.sel[id] && st[key].some((x) => x.id === id));
+    const originBadge = (o) => (o === '키워드 분석에서 추가' ? pill('#E4EBF6', '#2A5599') : pill('#EBE9E4', '#4A4945'));
+    const canDel = (x) => x.origin !== '시스템 공통' || isAdmin; // 시스템 공통 삭제는 관리자만 (와이어프레임)
+    const setItem = (id, patch) => app.update((d) => ({ ...d, [key]: d[key].map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+    const rows = pageItems.map((x) => ({
+      word: x.word, pos: x.pos, pending: isComp && x.pending, origin: { label: x.origin, style: originBadge(x.origin) }, target: srcName(x.target), added: x.added,
+      checked: !!s.sel[x.id], selAria: `${x.word} 선택`, onCheck: (e) => this.setState({ sel: { ...s.sel, [x.id]: e.target.checked } }),
+      on: x.on ? 'true' : 'false', toggleAria: `${x.word} 적용`,
+      // FUNC: FN-DIC-004 — 클릭 즉시 저장 [추정] [API 확인 필요]
+      onToggle: () => setItem(x.id, { on: !x.on, ...(isComp ? { pending: true } : {}) }),
+      trackStyle: { position: 'relative', width: 44, height: 26, borderRadius: 999, border: 'none', padding: 0, cursor: 'pointer', background: x.on ? '#2A5599' : '#D5D2CB', transition: 'background .15s' },
+      knobStyle: { position: 'absolute', top: 3, left: x.on ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.2)', transition: 'left .15s' },
+      canDelete: canDel(x), adminOnly: !canDel(x), delAria: `${x.word} 삭제`,
+      // 삭제 확인 대화상자 없음 → Gap. 단건 삭제는 즉시 처리, 선택 삭제만 확인 [확인 필요]
+      onDelete: () => { app.update((d) => ({ ...d, [key]: d[key].filter((y) => y.id !== x.id) })); app.toast(`'${x.word}'을(를) 삭제했습니다`); },
+    }));
+    const pendingN = isComp ? st.compounds.filter((x) => x.pending).length : 0;
+    const add = () => {
+      const w = s.word.trim();
+      if (!w) return this.setState({ wordErr: '단어를 입력하세요 [문구 확인 필요]' });
+      if (st[key].some((x) => x.word === w)) return this.setState({ wordErr: '이미 등록된 단어입니다 [추정]' });
+      this.addWords([w], '직접 추가');
+      this.setState({ word: '', wordErr: '', page: 1 });
+    };
+    return {
+      screenId: app.route, isComp,
+      ui: isComp
+        ? { tabs: 'SETTING-003-U01', add: 'SETTING-003-U04', bulk: 'SETTING-003-U05', tools: 'SETTING-003-U06', selbar: 'SETTING-003-U07', table: 'SETTING-003-U08' }
+        : { tabs: 'SETTING-002-U01', add: 'SETTING-002-U03', bulk: 'SETTING-002-U04', tools: 'SETTING-002-U05', selbar: 'SETTING-002-U06', table: 'SETTING-002-U07' },
+      tabs: [['SETTING-002', `불용어 ${st.stopwords.length}`], ['SETTING-003', `사용자 사전 ${st.compounds.length}`]].map(([r, label]) => ({
+        label, selected: app.route === r ? 'true' : 'false', style: tabStyle(app.route === r), onClick: () => app.nav(r),
+      })),
+      desc: isComp
+        ? "분석기가 두 단어로 쪼개는 복합어를 하나로 묶습니다. 예) '승단심사' → 승단 + 심사로 쪼개지지 않게 등록. 이미 수집한 글에는 재분석해야 반영됩니다"
+        : '순위·밀도 집계에서 빼는 단어입니다. 거의 모든 글에 나와 의미가 없는 단어를 넣습니다. 저장하는 즉시 모든 화면에 반영됩니다',
+      banner: pendingN > 0 ? { n: pendingN } : null,
+      reanalyzing: s.reanalyzing, reanalyzeLabel: s.reanalyzing ? '재분석 요청 중…' : '최근 30일 재분석',
+      onReanalyze: async () => {
+        this.setState({ reanalyzing: true });
+        await app.api.reanalyze();
+        app.update((d) => ({ ...d, compounds: d.compounds.map((x) => ({ ...x, pending: false })), contents: d.contents.map((c) => ({ ...c, staleDict: false })) }));
+        this.setState({ reanalyzing: false });
+        app.toast('최근 30일 수집분 재분석을 등록했습니다');
+      },
+      wordLabel: isComp ? '복합어' : '단어', wordHelp: isComp ? '예: 승단심사, 겨루기대회' : '예: 기자, 사진, 제공',
+      word: s.word, wordErr: s.wordErr, wordInvalid: s.wordErr ? 'true' : 'false', pos: s.pos, target: s.target,
+      srcOptions: st.sources.map((x) => ({ id: x.id, name: x.name })),
+      onWord: (e) => this.setState({ word: e.target.value, wordErr: '' }), onWordKey: (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } },
+      onPos: (e) => this.setState({ pos: e.target.value }), onTarget: (e) => this.setState({ target: e.target.value }), onAdd: add,
+      pasteOpen: s.pasteOpen, pasteOpenAttr: s.pasteOpen ? 'true' : 'false', paste: s.paste,
+      pasteLabel: '추가', onPaste: (e) => this.setState({ paste: e.target.value }),
+      onPasteToggle: () => this.setState({ pasteOpen: !s.pasteOpen, paste: '' }),
+      onPasteAdd: () => {
+        const words = s.paste.split(/[\n,]/).map((w) => w.trim()).filter(Boolean);
+        const r = this.addWords(words, '직접 추가');
+        this.setState({ pasteOpen: false, paste: '', page: 1 });
+        app.toast(`${r.added}개 추가 · 중복 ${r.skipped}개 건너뜀`);
+      },
+      fileRef: this.fileRef, onCsvPick: () => this.fileRef.current && this.fileRef.current.click(),
+      onCsvFile: async (e) => {
+        const file = e.target.files && e.target.files[0]; if (!file) return;
+        const text = await file.text(); e.target.value = '';
+        // CSV 형식: 1열 단어, (사용자 사전) 2열 품사 [확인 필요]
+        const rowsIn = text.split(/\r?\n/).map((l) => l.split(',').map((c) => c.replace(/^"|"$/g, '').trim())).filter((c) => c[0]);
+        if (rowsIn.length && /^(단어|복합어|word)$/i.test(rowsIn[0][0])) rowsIn.shift();
+        if (!rowsIn.length) { app.toast('가져올 단어가 없습니다. 파일 형식을 확인하세요 [문구 확인 필요]'); return; }
+        const r = this.addWords(rowsIn.map((c) => ({ word: c[0], pos: /^NN[PG]$/.test(c[1] || '') ? c[1] : undefined })), 'CSV 가져오기');
+        app.toast(`${r.added}개 가져옴 · 중복 ${r.skipped}개 건너뜀`);
+      },
+      onCsvExport: () => {
+        const head = isComp ? ['복합어', '품사', '출처', '적용 대상', '추가일', '적용'] : ['단어', '출처', '적용 대상', '추가일', '적용'];
+        const lines = [head.map(this.csvCell).join(',')].concat(list.map((x) => (isComp ? [x.word, x.pos, x.origin, srcName(x.target), x.added, x.on ? 'Y' : 'N'] : [x.word, x.origin, srcName(x.target), x.added, x.on ? 'Y' : 'N']).map(this.csvCell).join(',')));
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv' }));
+        a.download = isComp ? 'user-dictionary.csv' : 'stopwords.csv'; a.click();
+      },
+      q: s.q, fOrigin: s.fOrigin, fTarget: s.fTarget, sort: s.sort,
+      onQ: (e) => this.setState({ q: e.target.value, page: 1 }), onFOrigin: (e) => this.setState({ fOrigin: e.target.value, page: 1 }),
+      onFTarget: (e) => this.setState({ fTarget: e.target.value, page: 1 }), onSort: (e) => this.setState({ sort: e.target.value }),
+      hasSel: selIds.length > 0, selCount: selIds.length,
+      allChecked: pageItems.length > 0 && pageItems.every((x) => s.sel[x.id]),
+      onAll: (e) => { const sel = { ...s.sel }; pageItems.forEach((x) => { sel[x.id] = e.target.checked; }); this.setState({ sel }); },
+      onBulkOff: () => { app.update((d) => ({ ...d, [key]: d[key].map((x) => (s.sel[x.id] ? { ...x, on: false, ...(isComp ? { pending: true } : {}) } : x)) })); this.setState({ sel: {} }); app.toast(`${selIds.length}개 적용을 껐습니다`); },
+      onBulkDelete: () => {
+        const targets = st[key].filter((x) => s.sel[x.id]);
+        const deletable = targets.filter(canDel);
+        const skipped = targets.length - deletable.length;
+        app.confirm({
+          title: `${deletable.length}개를 삭제할까요?`, okLabel: '삭제',
+          body: skipped ? `시스템 공통 ${skipped}개는 관리자만 삭제할 수 있어 제외됩니다. [확인 필요] 삭제 확인 정책 미정` : '[확인 필요] 삭제 확인 대화상자는 와이어프레임에 없어 추정 구현입니다.',
+          onOk: () => { const ids = new Set(deletable.map((x) => x.id)); app.update((d) => ({ ...d, [key]: d[key].filter((x) => !ids.has(x.id)) })); this.setState({ sel: {} }); app.toast(`${deletable.length}개를 삭제했습니다`); },
+        });
+      },
+      rows, noRows: rows.length === 0, emptyText: st[key].length ? '검색 결과가 없습니다 [문구 확인 필요]' : '등록된 단어가 없습니다 [문구 확인 필요]',
+      total: list.length, atFirst: page <= 1, atLast: page >= pageCount,
+      pages: Array.from({ length: pageCount }, (_, i) => ({ n: i + 1, current: i + 1 === page ? 'page' : undefined, style: pageStyle(i + 1 === page), onClick: () => this.setState({ page: i + 1 }) })),
+      onPrev: () => this.setState({ page: page - 1 }), onNext: () => this.setState({ page: page + 1 }),
+    };
+  }
+}
+</script>
+</body>
+</html>
