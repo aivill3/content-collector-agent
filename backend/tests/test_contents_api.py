@@ -72,9 +72,9 @@ def test_list_item_shape_has_no_body(client, session):
         "a": {"collected_at": utc(2026, 9, 30, 5, 20), "published": "2026-09-30T08:00:00+09:00", "title": "태권도 대회"}},
         source_name="태권도 뉴스")
     x = client.get("/api/contents").json()["items"][0]
-    assert set(x) == {"id", "title", "url", "publisher", "summary", "collectionPath", "sourceId", "sourceName",
-                      "publishedAt", "collectedAt", "keywords", "bodyLength"}
-    assert x["summary"] == "요약"
+    assert set(x) == {"id", "title", "url", "publisher", "summary", "excerpt", "collectionPath", "sourceId",
+                      "sourceName", "publishedAt", "collectedAt", "keywords", "bodyLength"}
+    assert x["summary"] == "요약" and x["excerpt"] == "정제 본문"
     assert x["sourceName"] == "태권도 뉴스" and x["keywords"] == ["태권도"] and x["collectionPath"] == "naver"
     assert x["collectedAt"] == "2026-09-30T14:20:00+09:00"     # DISPLAY_TZ ISO
     assert x["publishedAt"] == "2026-09-30T08:00:00+09:00"
@@ -137,6 +137,7 @@ def test_detail_and_other_workspace_is_404(client, session, ws_b):
 
     d = client.get(f"/api/contents/{mine['mine']}").json()
     assert d["cleanedBody"] == "정제 본문" and d["rawBody"] == "원본 본문" and d["summary"] == "요약"
+    assert d["excerpt"] == "정제 본문"
     assert [(h["keyword"], h["rank"]) for h in d["hits"]] == [("태권도", 1)]
     assert d["hits"][0]["foundAt"].endswith("+09:00")
 
@@ -154,3 +155,14 @@ def test_source_options_are_workspace_scoped(client, session, ws_b):
     opts = client.get("/api/sources/options").json()
     assert [(o["name"], o["type"]) for o in opts] == [("내 소스", "news_keyword")]
     assert isinstance(opts[0]["id"], int)
+
+
+def test_excerpt_is_head_of_cleaned_body(client, session):
+    ids = add_contents(session, DEFAULT_WORKSPACE_ID, {"a": {"collected_at": utc(2026, 9, 30, 1)}})
+    c = session.get(Content, ids["a"])
+    c.cleaned_body = "첫 문단입니다.\n\n둘째   문단" + "가" * 300
+    session.add(c)
+    session.commit()
+    x = client.get("/api/contents").json()["items"][0]
+    assert x["excerpt"].startswith("첫 문단입니다. 둘째 문단가")     # 줄바꿈·연속 공백은 한 칸
+    assert len(x["excerpt"]) <= 120

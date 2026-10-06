@@ -335,6 +335,27 @@ def keywords_for(session: Session, workspace_id: uuid.UUID, content_ids: list[in
     return found
 
 
+EXCERPT_LEN = 120   # 목록에 보여 줄 정제 본문 앞부분 길이 (글자)
+
+
+def excerpt_of(text: str, length: int = EXCERPT_LEN) -> str:
+    """정제 본문 앞부분 — 줄바꿈·연속 공백을 한 칸으로."""
+    return " ".join(text[:length].split())
+
+
+def excerpts_for(session: Session, workspace_id: uuid.UUID, content_ids: list[int],
+                 length: int = EXCERPT_LEN) -> dict[int, str]:
+    """콘텐츠별 정제 본문 앞부분. 본문 전체를 읽지 않고 DB 에서 잘라 온다 (substr 은 SQLite·PostgreSQL 공통, 글자 단위)."""
+    found: dict[int, str] = {cid: "" for cid in content_ids}
+    for part in _chunks(content_ids):
+        stmt = (scoped_select(Content, workspace_id).where(col(Content.id).in_(part))
+                .with_only_columns(col(Content.id), func.substr(col(Content.cleaned_body), 1, length)))
+        # scoped_select 는 모델 하나를 고르는 select 라 exec() 는 첫 열만 돌려준다 — 두 열은 execute() 로 읽는다
+        for cid, head in session.execute(stmt):
+            found[cid] = excerpt_of(head or "", length)
+    return found
+
+
 def source_names(session: Session, workspace_id: uuid.UUID, source_ids: Iterable[int]) -> dict[int, str]:
     ids = list(set(source_ids))
     names: dict[int, str] = {}

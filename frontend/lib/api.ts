@@ -98,7 +98,8 @@ interface BackendContentItem {
   title: string;
   url: string;
   publisher: string;
-  summary: string;
+  summary: string; // 검색 API 설명 (정제 안 됨)
+  excerpt: string; // 정제 본문 앞부분
   collectionPath: "naver" | "board" | "website";
   sourceId: number;
   sourceName: string;
@@ -144,7 +145,8 @@ function toContentSummary(c: BackendContentItem): ContentSummary {
     isNew: false,
     keyword: c.keywords[0] ?? null,
     relevance: null, // 키워드 관련도 분석은 백엔드에 아직 없다
-    summary: c.summary,
+    // 목록의 요약 줄은 정제 본문 앞부분 — 검색 API 설명은 정제되지 않아 사진 캡션·바이라인이 섞인다
+    summary: c.excerpt || c.summary,
     sourceName: c.sourceName,
   };
 }

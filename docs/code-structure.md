@@ -288,7 +288,7 @@ flowchart LR
 | 뉴스 검색 테스트 | `POST /api/source-checks/search` |
 | 게시판 자동 탐지 | `POST /api/source-checks/board` |
 | URL 확인 | `POST /api/source-checks/urls` |
-| 콘텐츠 목록 `listContents` | `GET /api/contents` (기간은 `days`) |
+| 콘텐츠 목록 `listContents` | `GET /api/contents` (기간은 `days`, 요약 줄은 정제 본문 앞부분 `excerpt`) |
 | 콘텐츠 CSV `exportContents` | `GET /api/contents` 를 끝까지 받아 브라우저에서 CSV 생성 |
 | 콘텐츠 상세 `getContent` | `GET /api/contents/{id}` |
 | 소스 선택지 `listSourceOptions` | `GET /api/sources/options` |

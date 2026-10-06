@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 
 from app.db.models import Content, ContentKeywordHit
 from app.domain.enums import CollectionPath
+from app.repositories.contents import excerpt_of
 from app.schemas.base import CamelModel, DisplayDateTime
 
 MAX_PAGE_SIZE = 100
@@ -47,6 +48,7 @@ class ContentListItem(CamelModel):
     url: str
     publisher: str
     summary: str                     # 검색 API 설명 등 (게시판·URL 은 빈 값이 많다)
+    excerpt: str                     # 정제 본문 앞부분 (repositories.contents.EXCERPT_LEN 자) — 목록의 요약 줄
     collection_path: CollectionPath
     source_id: int
     source_name: str
@@ -56,9 +58,9 @@ class ContentListItem(CamelModel):
     body_length: int
 
     @classmethod
-    def of(cls, c: Content, *, source_name: str, keywords: list[str]) -> "ContentListItem":
+    def of(cls, c: Content, *, source_name: str, keywords: list[str], excerpt: str) -> "ContentListItem":
         return cls(
-            id=c.id, title=c.title, url=c.url, publisher=c.publisher, summary=c.summary,
+            id=c.id, title=c.title, url=c.url, publisher=c.publisher, summary=c.summary, excerpt=excerpt,
             collection_path=c.collection_path,
             source_id=c.source_id, source_name=source_name, published_at=c.published_at,
             collected_at=c.collected_at, keywords=keywords, body_length=c.body_length,
@@ -93,7 +95,8 @@ class ContentDetail(ContentListItem):
 
     @classmethod
     def of_detail(cls, c: Content, *, source_name: str, hits: list[ContentKeywordHit]) -> "ContentDetail":
-        item = ContentListItem.of(c, source_name=source_name, keywords=[h.keyword for h in hits])
+        item = ContentListItem.of(c, source_name=source_name, keywords=[h.keyword for h in hits],
+                                  excerpt=excerpt_of(c.cleaned_body))
         return cls(
             **item.model_dump(), board_url=c.board_url, first_job_id=c.first_job_id,
             cleaned_body=c.cleaned_body, raw_body=c.raw_body, hits=[ContentHit.of(h) for h in hits],

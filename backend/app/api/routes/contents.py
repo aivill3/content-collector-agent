@@ -31,9 +31,11 @@ def list_contents(params: Annotated[ContentListParams, Query()], ws: WorkspaceDe
     rows, total = repo.search_contents(session, ws.id, query, page=params.page, size=params.size)
     ids = [c.id for c in rows]
     keywords = repo.keywords_for(session, ws.id, ids)
+    excerpts = repo.excerpts_for(session, ws.id, ids)
     names = repo.source_names(session, ws.id, (c.source_id for c in rows))
     return ContentListResult(
-        items=[ContentListItem.of(c, source_name=names.get(c.source_id, ""), keywords=keywords[c.id]) for c in rows],
+        items=[ContentListItem.of(c, source_name=names.get(c.source_id, ""), keywords=keywords[c.id],
+                                  excerpt=excerpts[c.id]) for c in rows],
         total=total, page=params.page, size=params.size, page_count=math.ceil(total / params.size),
     )
 
