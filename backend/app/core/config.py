@@ -7,12 +7,14 @@ taekwonw-agent 의 config/settings.py 에서 수집에 필요한 값만 옮겼�
 함수 인자로 받는다 — 나중에 API 서버·DB 에서 유저 설정을 넘기기 위해서다.
 """
 import os
-from datetime import timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
 
-KST = timezone(timedelta(hours=9), name="KST")
+# 수집 원본을 읽을 때의 시간대. 네이버 검색 API·국내 게시판은 한국 시각으로 날짜를 적으므로
+# 시간대 표기가 없는 날짜('2026.09.25', '14:32')를 이 시간대로 해석한다. 표시 시간대와는 별개다.
+KST = ZoneInfo("Asia/Seoul")
 
 # backend/app/core/config.py → BASE_DIR = backend/, ROOT_DIR = 저장소 루트
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -20,6 +22,15 @@ ROOT_DIR = BASE_DIR.parent
 # .env 는 저장소 루트에 둔다 (docker-compose 와 같은 위치). backend/.env 가 있으면 그쪽이 우선.
 load_dotenv(BASE_DIR / ".env")
 load_dotenv(ROOT_DIR / ".env")
+
+# ── 시간대 ──────────────────────────────────────────────
+# DB 에는 UTC 로 저장한다. 화면·API 응답의 시각, '오늘'·일별·최근 N일 집계, 소스의 schedule_time 은
+# 이 시간대 기준이다. 변환은 app/core/timeutil.py 로만 한다 (오프셋을 코드에 적지 않는다).
+DISPLAY_TZ_NAME = os.getenv("DISPLAY_TZ") or "Asia/Seoul"
+try:
+    DISPLAY_TZ = ZoneInfo(DISPLAY_TZ_NAME)
+except (ZoneInfoNotFoundError, ValueError) as e:
+    raise RuntimeError(f"DISPLAY_TZ='{DISPLAY_TZ_NAME}' 는 IANA 시간대 이름이 아닙니다 (예: Asia/Seoul)") from e
 
 # ── 네이버 검색 API ─────────────────────────────────────
 # 네이버 검색 API 는 개발자센터에서 NAVER API HUB 로 이전 중이다.
@@ -41,3 +52,9 @@ BOARD_REQUEST_DELAY = float(os.getenv("BOARD_REQUEST_DELAY", "1.0"))
 BOARD_MAX_WORKERS = int(os.getenv("BOARD_MAX_WORKERS", "2"))
 # robots.txt 준수 여부. 외부 판매 서비스라면 끄지 않는 것을 권한다.
 RESPECT_ROBOTS = os.getenv("RESPECT_ROBOTS", "true").lower() != "false"
+
+# ── DB ──────────────────────────────────────────────────
+# 개발은 SQLite, 운영은 PostgreSQL. 코드는 같고 이 값만 바꾼다.
+#   postgresql+psycopg://user:pass@host:5432/dbname
+# 상대 경로 SQLite 는 실행 위치에 따라 파일이 달라지므로 backend/data/ 로 고정한다.
+DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{(BASE_DIR / 'data' / 'app.db').as_posix()}"

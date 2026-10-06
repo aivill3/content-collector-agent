@@ -5,7 +5,8 @@ import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, errorText } from "@/lib/api";
+import { shortDate } from "@/lib/labels";
 import type { UrlCheckResult } from "@/lib/types";
 import { FormSection } from "./form-section";
 import { urlList, type FormProps } from "./values";
@@ -15,8 +16,30 @@ import { urlList, type FormProps } from "./values";
 const RESULT_BADGE: Record<UrlCheckResult["result"], [string, BadgeTone]> = {
   ok: ["확인됨", "green"],
   short: ["본문 짧음", "orange"],
+  foreign: ["비한국어", "orange"],
   robots: ["robots 차단", "orange"],
+  fail: ["접속 실패", "gray"],
 };
+
+/** '본문' 칸 문구 [문구 확인 필요] */
+function resultText(u: UrlCheckResult): string {
+  const len = `${u.length.toLocaleString()}자`;
+  switch (u.result) {
+    case "ok":
+      return len;
+    case "short":
+      return `${len} · 최소 길이 미만`;
+    case "foreign":
+      return `${len} · 비한국어 글도 수집을 켜면 받습니다`;
+    case "robots":
+      return "수집하지 않음";
+    case "fail":
+      return "본문을 가져오지 못함";
+  }
+}
+
+/** 한 번에 확인할 수 있는 주소 수 — 백엔드 MAX_CHECK_URLS 와 같게 */
+const MAX_CHECK = 20;
 
 export function UrlSections({ v, set, err, setErr }: FormProps) {
   const [checking, setChecking] = useState(false);
@@ -24,17 +47,19 @@ export function UrlSections({ v, set, err, setErr }: FormProps) {
 
   const lines = v.urls.split("\n").map((x) => x.trim()).filter(Boolean);
   const dup = lines.length - new Set(lines).size;
+  const firstOk = results?.find((u) => u.result === "ok");
 
   // FUNC: FN-SRC-007
   const check = async () => {
     const list = urlList(v.urls);
     if (!list.length) return setErr({ urls: "주소를 1개 이상 입력하세요" });
+    if (list.length > MAX_CHECK) return setErr({ urls: `한 번에 ${MAX_CHECK}개까지 확인할 수 있습니다 [문구 확인 필요]` });
     setErr({ urls: undefined });
     setChecking(true);
     try {
-      setResults(await api.checkUrls(list, Number(v.minLen) || 0));
-    } catch {
-      setErr({ urls: "주소를 확인하지 못했습니다 [문구 확인 필요]" });
+      setResults(await api.checkUrls(list, { minLen: Number(v.minLen) || 0, koreanOnly: !v.nonKorean }));
+    } catch (e) {
+      setErr({ urls: errorText(e, "주소를 확인하지 못했습니다 [문구 확인 필요]") });
     } finally {
       setChecking(false);
     }
@@ -79,21 +104,24 @@ export function UrlSections({ v, set, err, setErr }: FormProps) {
                       <Td className="py-3">
                         <Badge tone={tone}>{label}</Badge>
                       </Td>
-                      <Td className="py-3 text-ink-2">{u.text}</Td>
+                      <Td className="py-3 text-ink-2">{resultText(u)}</Td>
                     </tr>
                   );
                 })}
               </tbody>
             </Table>
-            {/* MOCK — 본문 미리보기 자리 */}
-            <div data-ui-id="SOURCE-005-U06" className="flex flex-col gap-2 rounded-[10px] bg-subtle p-4">
-              <strong className="text-[13px]">첫 번째 글 본문 미리보기</strong>
-              <strong className="text-[15px]">[글 제목]</strong>
-              <span className="text-[13px] text-muted">[사이트명] · [발행일]</span>
-              {["w-full", "w-[94%]", "w-[97%]", "w-[70%]"].map((w) => (
-                <div key={w} className={`h-[9px] rounded-[5px] bg-field ${w}`} />
-              ))}
-            </div>
+            {firstOk && (
+              <div data-ui-id="SOURCE-005-U06" className="flex flex-col gap-2 rounded-[10px] bg-subtle p-4">
+                <strong className="text-[13px]">첫 번째 글 본문 미리보기</strong>
+                <strong className="text-[15px]">{firstOk.title || "(제목 없음)"}</strong>
+                <span className="text-[13px] text-muted">
+                  {firstOk.outlet} · {firstOk.date ? shortDate(firstOk.date) : "발행일 모름"}
+                </span>
+                <p className="m-0 line-clamp-4 text-[13px] leading-relaxed whitespace-pre-line text-ink-2">
+                  {firstOk.excerpt}
+                </p>
+              </div>
+            )}
           </>
         )}
       </FormSection>

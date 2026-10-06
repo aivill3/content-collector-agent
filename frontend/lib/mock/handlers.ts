@@ -4,7 +4,6 @@
 import {
   createMockStore,
   emptyStore,
-  mockBoardPosts,
   mockDetect,
   mockSearchResults,
   type MockStore,
@@ -17,7 +16,6 @@ import type {
   AnalysisSettings,
   AnalysisParams,
   BoardDetectResult,
-  BoardPostPreview,
   CollectResult,
   Content,
   ContentDetail,
@@ -170,6 +168,7 @@ export function listContents(p: ContentListParams): ContentListResult {
     page,
     pageCount,
     passingMode: s.settings.passingMode,
+    analyzed: true,
   };
 }
 
@@ -191,7 +190,7 @@ export function getContent(id: string): ContentDetail | null {
   const content = s.contents.find((c) => c.id === id);
   if (!content) return null;
   const { version, metrics, topN, ttrWarn, denom, posRange, densTitle, minMentions } = s.settings;
-  return { content, settings: { version, metrics, topN, ttrWarn, denom, posRange, densTitle, minMentions } };
+  return { content, analyzed: true, settings: { version, metrics, topN, ttrWarn, denom, posRange, densTitle, minMentions } };
 }
 
 /** 글 하나를 현재 분석 설정으로 재분석 (FN-CNT-007) */
@@ -235,15 +234,26 @@ export function saveSource(input: SourceInput): Source {
 
 export const searchTest = (keyword: string): SearchPreview[] => mockSearchResults(keyword);
 export const detectBoard = (url: string): BoardDetectResult => mockDetect(url);
-export const boardPreview = (candidateIndex: number): BoardPostPreview[] => mockBoardPosts(candidateIndex);
 
-/** 주소별 확인. 네 번째 주소나 robots/blocked 가 들어간 주소는 차단, 세 번째는 본문 짧음으로 재현 */
-export function checkUrls(urls: string[], minLen: number): UrlCheckResult[] {
-  return urls.map((url, i) => {
-    if (/robots|blocked/.test(url) || i === 3) return { url, result: "robots", text: "수집하지 않음" };
-    const len = i === 2 ? Math.max(0, minLen - 8) : 1200 + i * 310;
-    if (len < minLen) return { url, result: "short", text: `${len}자 · 최소 길이 미만` };
-    return { url, result: "ok", text: `${len.toLocaleString()}자` };
+/** 주소별 확인. robots/blocked 가 들어간 주소나 네 번째 주소는 차단, 세 번째는 본문 짧음,
+ *  /en/ 이 들어간 주소는 비한국어, fail 이 들어간 주소는 접속 실패로 재현 */
+export function checkUrls(urls: string[], opts: { minLen: number; koreanOnly: boolean }): UrlCheckResult[] {
+  return [...new Set(urls)].map((url, i): UrlCheckResult => {
+    const none = { url, length: 0, title: "", outlet: "", date: "", excerpt: "" };
+    if (/robots|blocked/.test(url) || i === 3) return { ...none, result: "robots" };
+    if (/fail/.test(url)) return { ...none, result: "fail" };
+    const length = i === 2 ? Math.max(0, opts.minLen - 8) : 1200 + i * 310;
+    const page = {
+      url,
+      length,
+      title: `샘플 글 제목 ${i + 1}`,
+      outlet: url.replace(/^https?:\/\//, "").split("/")[0],
+      date: `2026-09-${27 - i}T10:00:00+09:00`,
+      excerpt: "샘플 본문 앞부분입니다. 실제 연결(NEXT_PUBLIC_API_MODE=live)에서는 정제된 본문의 첫 300자가 들어옵니다.",
+    };
+    if (length < opts.minLen) return { ...page, result: "short" };
+    if (opts.koreanOnly && /\/en\//.test(url)) return { ...page, result: "foreign" };
+    return { ...page, result: "ok" };
   });
 }
 

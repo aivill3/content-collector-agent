@@ -79,12 +79,14 @@ export function ContentListScreen({ initialQ }: { initialQ: string }) {
   if (error || !data) return <ErrorState onRetry={() => reload("full")} />;
 
   const empty = data.total === 0;
+  // 키워드 관련도 분석이 없으면(백엔드 연결 시) 관련도 필터·열·안내를 감춘다
+  const analyzed = data.analyzed;
 
   return (
     <div data-screen-label="CONTENT-001 콘텐츠 목록" data-screen-id="CONTENT-001" className="flex flex-col gap-6">
       <PageHeader
         title="콘텐츠"
-        description="수집된 글을 소스·기간·관련도로 걸러 봅니다"
+        description={analyzed ? "수집된 글을 소스·기간·관련도로 걸러 봅니다" : "수집된 글을 소스·기간으로 걸러 봅니다"}
         actions={
           // 0건이면 비활성 [추정]
           <Button data-ui-id="CONTENT-001-U01" data-func-id="FN-CNT-002" onClick={exportCsv} disabled={empty || exporting}>
@@ -124,19 +126,21 @@ export function ContentListScreen({ initialQ }: { initialQ: string }) {
             <option value="all">전체</option>
           </Select>
         </Field>
-        <div className="flex max-w-full min-w-0 flex-[0_1_auto] flex-col gap-2">
-          <span id="rel-label" className="text-[13px] font-semibold">
-            키워드 관련도
-          </span>
-          <SegmentedTabs
-            data-ui-id="CONTENT-001-U05"
-            mode="radio"
-            labelledBy="rel-label"
-            items={RELEVANCES}
-            value={filters.relevance}
-            onChange={(relevance) => update({ relevance })}
-          />
-        </div>
+        {analyzed && (
+          <div className="flex max-w-full min-w-0 flex-[0_1_auto] flex-col gap-2">
+            <span id="rel-label" className="text-[13px] font-semibold">
+              키워드 관련도
+            </span>
+            <SegmentedTabs
+              data-ui-id="CONTENT-001-U05"
+              mode="radio"
+              labelledBy="rel-label"
+              items={RELEVANCES}
+              value={filters.relevance}
+              onChange={(relevance) => update({ relevance })}
+            />
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-4 rounded-card border border-line bg-surface px-6 pt-3 pb-6">
@@ -148,12 +152,17 @@ export function ContentListScreen({ initialQ }: { initialQ: string }) {
                 <Th className="pt-3.5 pb-2.5">출처</Th>
                 <Th className="pt-3.5 pb-2.5">발행일</Th>
                 <Th className="pt-3.5 pb-2.5">수집 경로</Th>
-                <Th className="pt-3.5 pb-2.5">관련도</Th>
+                {analyzed && <Th className="pt-3.5 pb-2.5">관련도</Th>}
               </tr>
             </thead>
             <tbody>
               {data.items.map((c) => (
-                <ContentRow key={c.id} item={c} dim={data.passingMode === "dim" && c.relevance === "passing"} />
+                <ContentRow
+                  key={c.id}
+                  item={c}
+                  showRelevance={analyzed}
+                  dim={data.passingMode === "dim" && c.relevance === "passing"}
+                />
               ))}
             </tbody>
           </Table>
@@ -170,7 +179,8 @@ export function ContentListScreen({ initialQ }: { initialQ: string }) {
         )}
         <div data-ui-id="CONTENT-001-U08" className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-[13px] text-muted">
-            총 {data.total}건 · &apos;스쳐 지나감&apos;은 분석 설정에 따라 {PASSING_NOTE[data.passingMode]}
+            총 {data.total}건
+            {analyzed && <> · &apos;스쳐 지나감&apos;은 분석 설정에 따라 {PASSING_NOTE[data.passingMode]}</>}
           </span>
           <Pagination page={data.page} pageCount={data.pageCount} onChange={setPage} />
         </div>
@@ -179,9 +189,15 @@ export function ContentListScreen({ initialQ }: { initialQ: string }) {
   );
 }
 
-function ContentRow({ item: c, dim }: { item: ContentSummary; dim: boolean }) {
+function ContentRow({ item: c, dim, showRelevance }: { item: ContentSummary; dim: boolean; showRelevance: boolean }) {
   const path =
-    c.type === "news" ? `키워드 '${c.keyword}'` : c.type === "board" ? `게시판 '${c.sourceName}'` : "URL 수집";
+    c.type === "news"
+      ? c.keyword
+        ? `키워드 '${c.keyword}'`
+        : "뉴스 키워드"
+      : c.type === "board"
+        ? `게시판 '${c.sourceName}'`
+        : "URL 수집";
   const rel = c.relevance ? RELEVANCE_BADGE[c.relevance] : (["—", "gray"] as const);
   return (
     <tr data-ui-id="CONTENT-001-U07" className={cx(dim && "opacity-45")}>
@@ -194,9 +210,11 @@ function ContentRow({ item: c, dim }: { item: ContentSummary; dim: boolean }) {
       <Td className="py-3 text-ink-2">{c.outlet}</Td>
       <Td className="py-3 font-mono text-[13px]">{c.published.slice(5, 10)}</Td>
       <Td className="py-3 text-ink-2">{path}</Td>
-      <Td className="py-3">
-        <Badge tone={rel[1]}>{rel[0]}</Badge>
-      </Td>
+      {showRelevance && (
+        <Td className="py-3">
+          <Badge tone={rel[1]}>{rel[0]}</Badge>
+        </Td>
+      )}
     </tr>
   );
 }

@@ -70,30 +70,42 @@ export type SourceInput = Omit<Source, "id" | "status" | "last" | "recentNew" | 
 /** 뉴스 검색 테스트 결과 한 줄 (FN-SRC-003) */
 export interface SearchPreview {
   title: string;
+  url: string;
+  /** 언론사 — 네이버 검색 결과에 없어 기사 주소의 도메인으로 대신한다 */
   outlet: string;
-  date: string; // MM-DD
-  kw: string;
+  date: string; // ISO 8601, 모르면 빈 값
+  keyword: string;
 }
 
-/** 게시판 자동 탐지 결과 (FN-SRC-004) */
+/** 게시판 자동 탐지 결과 (FN-SRC-004). 목록 페이지를 한 번만 받아 후보마다 미리보기까지 담는다 */
 export interface BoardDetectResult {
   robots: boolean; // robots.txt 허용
-  httpOk: boolean; // 목록 페이지 응답 정상
+  httpOk: boolean; // 목록 페이지 응답 정상 (robots 차단이면 요청하지 않아 false)
   /** 글 번호만 다른 링크가 많이 반복된 순서 */
-  candidates: { pattern: string; links: number }[];
+  candidates: BoardCandidate[];
+}
+
+export interface BoardCandidate {
+  pattern: string; // URL 모양 — 채택하면 Source.listPattern 으로 저장
+  links: number;
+  posts: BoardPostPreview[]; // 앞쪽 몇 건 (FN-SRC-005)
 }
 
 export interface BoardPostPreview {
   title: string;
-  date: string;
+  date: string; // ISO 8601, 목록에서 못 읽으면 빈 값
   url: string;
 }
 
-/** URL 확인 결과 (FN-SRC-007). 접속 실패 상태는 [추정] */
+/** URL 확인 결과 (FN-SRC-007) — 실제 수집과 같은 규칙(robots → 본문 추출 → 정제 → 길이·언어)으로 판정 */
 export interface UrlCheckResult {
   url: string;
-  result: "ok" | "short" | "robots";
-  text: string;
+  result: "ok" | "short" | "foreign" | "robots" | "fail";
+  length: number; // 정제 후 본문 길이 (자)
+  title: string;
+  outlet: string;
+  date: string; // ISO 8601, 모르면 빈 값
+  excerpt: string; // 정제 본문 앞부분
 }
 
 export interface TopWord {
@@ -142,6 +154,16 @@ export interface Content {
   staleDict: boolean;
   paragraphs: string[];
   removed: RemovedBlock[];
+  /** 정제 전 본문. 있으면 원본 탭이 이것을 보여 준다 (백엔드 연결 시). 없으면 paragraphs + removed */
+  rawBody?: string;
+  /** 이 글을 찾은 검색 키워드와 순위 (백엔드 연결 시) */
+  hits?: ContentHit[];
+}
+
+export interface ContentHit {
+  keyword: string;
+  rank: number;
+  foundAt: string; // YYYY-MM-DD HH:mm
 }
 
 /** 목록·대시보드에서 쓰는 콘텐츠 요약 */
@@ -273,16 +295,27 @@ export interface ContentListResult {
   pageCount: number;
   /** 분석 설정의 '스쳐 지나감' 처리 — hide 는 서버에서 이미 제외, dim 은 화면에서 흐리게, show 는 그대로 */
   passingMode: AnalysisSettings["passingMode"];
+  /** 키워드 관련도 분석 결과가 있는가. false 면 관련도 필터·열을 감춘다 (백엔드에 분석 기능이 생기기 전) */
+  analyzed: boolean;
 }
 
-export interface ContentDetail {
-  content: Content;
-  /** 판정 기준·표시 항목에 쓰는 현재 분석 설정 */
-  settings: Pick<
-    AnalysisSettings,
-    "version" | "metrics" | "topN" | "ttrWarn" | "denom" | "posRange" | "densTitle" | "minMentions"
-  >;
-}
+/**
+ * analyzed=false 면 관련도·지표·상위 키워드 카드를 감춘다 (content 의 분석 필드는 빈 값).
+ * 백엔드에 키워드 분석 기능이 생기기 전의 live 모드가 이렇다.
+ */
+export type ContentDetail =
+  | {
+      content: Content;
+      analyzed: true;
+      /** 판정 기준·표시 항목에 쓰는 현재 분석 설정 */
+      settings: Pick<
+        AnalysisSettings,
+        "version" | "metrics" | "topN" | "ttrWarn" | "denom" | "posRange" | "densTitle" | "minMentions"
+      >;
+    }
+  | { content: Content; analyzed: false };
+
+export type AnalyzedContentDetail = Extract<ContentDetail, { analyzed: true }>;
 
 export interface JobListParams {
   sourceId: string; // 'all' 또는 소스 id

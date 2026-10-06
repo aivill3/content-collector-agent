@@ -93,6 +93,46 @@ def test_cleaner_removes_boilerplate():
     assert len(clean_all([Article(title="t", body="짧은 공지 글입니다. 확인 바랍니다.")], min_len=10)) == 1
 
 
+def test_cleaner_newsis_style_prefix():
+    # 사진 기사: 대괄호 프리픽스 + 날짜 + 가려진 이메일 → 캡션 줄 전체 삭제 (실측 2026-10-01 뉴시스)
+    caption = ("[도요하시(일본)=뉴시스] 이영환 기자 = 1일 오후(현지 시간) 일본 아이치현 도요하시 체육관에서 열린 "
+               "2026 아이치·나고야 아시안게임 태권도 남자 개인 품새 메달 시상식에서 금메달을 획득한 한국 윤규성이 "
+               "기념촬영을 하고 있다. 2026.10.01. [email protected]")
+    assert clean_content(caption) == ""
+    assert clean_content(caption.replace("[email protected]", "photo@newsis.com")) == ""
+    assert clean_all([Article(title="t", body=caption)], min_len=100) == []
+    # 기사 리드: 프리픽스만 벗기고 본문은 남긴다
+    lead = "[서울=뉴시스] 김철수 기자 = 국기원은 1일 하반기 승단심사 일정을 발표했다. 문의는 [email protected] 로 하면 된다."
+    out = clean_content(lead)
+    assert out.startswith("국기원은") and "뉴시스" not in out and "email" not in out
+    # 사진 캡션 (기자 이름 없음, '재판매 및 DB 금지' 꼬리) — 줄째 삭제. 태그 없는 문단은 꼬리만 뗀다
+    photo = "[서울=뉴시스] 금메달을 딴 곽민주. (사진=세계태권도연맹 제공) *재판매 및 DB 금지"
+    assert clean_content(lead + "\n" + photo) == out
+    assert clean_content("국기원은 1일 일정을 발표했다. *재판매 및 DB 금지") == "국기원은 1일 일정을 발표했다."
+    # Google 선호 출처 안내 줄 (톱스타뉴스). 'Google에서' 로 시작하는 본문 문장은 남긴다
+    google = "\nGoogle 선호 출처로 추가하면 더 자주 보여요.\nGoogle에서 톱스타뉴스 자주 보기\nGoogle에서 톱스타뉴스를 선택해 주세요."
+    assert clean_content(lead + google) == out
+    assert clean_content("Google에서 태권도 영상이 인기다.") == "Google에서 태권도 영상이 인기다."
+    # 연합뉴스 요약 박스 — 안내 문구와 그 위 요약 줄
+    box = "국기원, 승단심사 일정 발표\n10월부터 전국 진행\n전체 내용을 이해하기 위해서는 기사 본문과 함께 읽어야 합니다.\n"
+    assert clean_content(box + lead) == out
+    # 줄 맨 앞 소괄호 바이라인. 본문 속 괄호는 남긴다
+    assert clean_content("(톱스타뉴스 김수아 기자) 정하은(25·용인특례시청)이 금메달을 땄다.") == "정하은(25·용인특례시청)이 금메달을 땄다."
+    # 사진 캡션·출처 표기
+    # (실측 뉴스1 포토 기사: 부제·캡션·표기·관련기사가 한 줄로 붙어 온다 → 전부 빠져 제외된다)
+    caption = "대한민국 정하은이 1일 일본 도요하시 체육관에서 열린 태권도 여자 개인 품새 결승전에서 금메달을 확정 짓자 세리머니를 하고 있다."
+    photo_only = ("압도적 기량으로 우승…한국 28번째 金" + caption + " 2026.10.1 ⓒ 뉴스1 안은나 기자" + caption
+                  + " ⓒ 뉴스1 안은나 기자관련 키워드2026아시안게임태권도관련 기사'페이커'부터 양궁 단체전 연속 우승까지")
+    assert clean_content(photo_only) == ""
+    assert clean_all([Article(title="t", body=photo_only)], min_len=100) == []
+    # 본문 문단에 캡션이 붙은 경우 — 캡션 문장만 빠지고 본문은 남는다
+    para = "정하은은 1일 품새 결승에서 평균 9.310점을 받아 아시아 정상에 올랐다. " * 4
+    assert clean_content(para + caption + " ⓒ 뉴스1 안은나 기자\n" + lead) == para.strip() + "\n" + out
+    # 매체 꼬리말 줄
+    body = lead + "\n◎공감언론 뉴시스 [email protected]\n◎공감언론 뉴시스가 독자 여러분의 소중한 제보를 기다립니다."
+    assert clean_content(body) == out
+
+
 def test_naver_search_parses_and_pages(monkeypatch):
     from app.collectors import news as naver_news
     monkeypatch.setattr(naver_news, "NAVER_CLIENT_ID", "id")
@@ -141,3 +181,15 @@ def test_news_collector_keeps_raw(monkeypatch):
     c = NewsCollector(["가", "나"])
     assert [a.title for a in c.collect()] == ["가", "나"]
     assert c.raw == {"가": [{"k": "가"}], "나": [{"k": "나"}]}
+
+
+def test_auto_posts_follow_saved_pattern():
+    # 2순위 묶음을 채택해 저장했으면 1순위가 아니라 그 묶음을 따른다
+    html = GNUBOARD_LIKE.replace("</tbody></table>", "</tbody></table>" + "".join(
+        f'<a href="/gallery/{i}">사진 게시글 {i}</a>' for i in range(1, 3)))
+    groups = detect_groups(html, BASE)
+    second = next(s for s, _ in groups if "gallery" in s)
+    posts = _posts_auto(html, BASE, BoardConfig(list_url=BASE, list_pattern=second))
+    assert [p.title for p in posts] == ["사진 게시글 1", "사진 게시글 2"]
+    # 채택한 묶음이 사라지면 1순위로 바꿔 모으지 않고 0건
+    assert _posts_auto(GNUBOARD_LIKE, BASE, BoardConfig(list_url=BASE, list_pattern=second)) == []

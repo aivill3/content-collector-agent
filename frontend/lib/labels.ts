@@ -57,3 +57,9 @@ export const POS_RANGE_LABEL: Record<string, string> = {
 };
 
 export const denomLabel = (denom: string) => (denom === "content" ? "내용어 전체" : "명사");
+
+/** ISO 8601 → 'MM-DD'. 백엔드가 KST 로 주므로 시간대 변환 없이 자른다. 모르면 '—' */
+export function shortDate(iso: string): string {
+  const m = /^\d{4}-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[1]}-${m[2]}` : "—";
+}

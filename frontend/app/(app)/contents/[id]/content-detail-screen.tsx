@@ -14,7 +14,7 @@ import { api } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import { POS_RANGE_LABEL, RELEVANCE_BADGE, SOURCE_TYPE_LABEL, denomLabel } from "@/lib/labels";
 import { useApiData } from "@/lib/use-api-data";
-import type { Content, ContentDetail, ContentMetrics } from "@/lib/types";
+import type { AnalyzedContentDetail, Content, ContentMetrics } from "@/lib/types";
 
 // CONTENT-002 정제 본문 / CONTENT-003 원본 본문
 
@@ -53,9 +53,15 @@ export function ContentDetailScreen({ id, tab }: { id: string; tab: Tab }) {
         <div className="flex flex-wrap items-start gap-6">
           <Body content={data.content} tab={tab} />
           <aside className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
-            {data.content.type === "news" && <RelevanceCard detail={data} />}
-            <MetricsCard detail={data} />
-            <TopWordsCard detail={data} onReanalyzed={() => reload("quiet")} />
+            {data.analyzed ? (
+              <>
+                {data.content.type === "news" && <RelevanceCard detail={data} />}
+                <MetricsCard detail={data} />
+                <TopWordsCard detail={data} onReanalyzed={() => reload("quiet")} />
+              </>
+            ) : (
+              <CollectInfoCard content={data.content} />
+            )}
           </aside>
         </div>
       )}
@@ -66,7 +72,12 @@ export function ContentDetailScreen({ id, tab }: { id: string; tab: Tab }) {
 function Body({ content: c, tab }: { content: Content; tab: Tab }) {
   const toast = useToast();
   const rel = c.relevance ? RELEVANCE_BADGE[c.relevance] : null;
-  const meta = [c.outlet, `발행 ${c.published}`, `수집 ${c.collected}`, c.keyword ? `키워드 '${c.keyword}'` : null]
+  const meta = [
+    c.outlet,
+    c.published ? `발행 ${c.published}` : null,
+    `수집 ${c.collected}`,
+    c.keyword ? `키워드 '${c.keyword}'` : null,
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -126,6 +137,23 @@ function Body({ content: c, tab }: { content: Content; tab: Tab }) {
             </p>
           ))}
         </div>
+      ) : c.rawBody !== undefined ? (
+        // 백엔드 연결 시: 정제 전 본문을 그대로 보여 준다 (제거 위치 표시는 아직 없다)
+        <>
+          <p data-ui-id="CONTENT-003-U07" className="m-0 text-[13px] leading-relaxed text-muted">
+            수집 직후 추출된 그대로의 본문입니다. 필요한 내용이 정제에서 지워졌다면 정제 본문과 비교해 확인합니다
+          </p>
+          <div data-ui-id="CONTENT-003-U08" className="flex flex-col gap-2.5 text-[15px] leading-[1.8] text-ink">
+            {c.rawBody
+              .split(/\n+/)
+              .filter((p) => p.trim())
+              .map((p, i) => (
+                <p key={i} className="m-0">
+                  {p}
+                </p>
+              ))}
+          </div>
+        </>
       ) : (
         <>
           <p data-ui-id="CONTENT-003-U07" className="m-0 text-[13px] leading-relaxed text-muted">
@@ -170,7 +198,48 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function RelevanceCard({ detail: { content: c, settings: s } }: { detail: ContentDetail }) {
+/** 키워드 분석 전(백엔드 연결 시) — 수집 정보와 검색 키워드 순위 */
+function CollectInfoCard({ content: c }: { content: Content }) {
+  const mono = "font-mono text-[13px]";
+  const hits = c.hits ?? [];
+  return (
+    <Card className="flex flex-col">
+      <h3 className="m-0 mb-2 text-base font-bold">수집 정보</h3>
+      <Row label="수집 경로">
+        <span>{SOURCE_TYPE_LABEL[c.type]}</span>
+      </Row>
+      <Row label="본문 길이">
+        <span className={mono}>{c.length.toLocaleString()}자</span>
+      </Row>
+      {hits.length > 0 && (
+        <>
+          <h4 className="mt-4 mb-1 text-sm font-bold">검색 키워드</h4>
+          <Table>
+            <thead>
+              <tr>
+                <Th>키워드</Th>
+                <Th>순위</Th>
+                <Th>찾은 시각</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {hits.map((h) => (
+                <tr key={h.keyword}>
+                  <Td className="py-3">{h.keyword}</Td>
+                  <Td className={cx("py-3", mono)}>{h.rank}위</Td>
+                  <Td className={cx("py-3", mono)}>{h.foundAt}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </>
+      )}
+      <p className="mt-3.5 mb-0 text-[13px] text-muted">키워드 관련도·형태소 지표는 분석 기능이 연결되면 표시됩니다</p>
+    </Card>
+  );
+}
+
+function RelevanceCard({ detail: { content: c, settings: s } }: { detail: AnalyzedContentDetail }) {
   const rel = c.relevance ? RELEVANCE_BADGE[c.relevance] : null;
   const mono = "font-mono text-[13px]";
   return (
@@ -202,7 +271,7 @@ function RelevanceCard({ detail: { content: c, settings: s } }: { detail: Conten
   );
 }
 
-function MetricsCard({ detail: { content: c, settings: s } }: { detail: ContentDetail }) {
+function MetricsCard({ detail: { content: c, settings: s } }: { detail: AnalyzedContentDetail }) {
   const m = c.metrics;
   const format = (k: keyof ContentMetrics) => (k === "avgLen" ? m.avgLen.toFixed(1) : k === "ttr" ? m.ttr.toFixed(2) : m[k]);
   const ttrLow = m.ttr < s.ttrWarn;
@@ -226,7 +295,13 @@ function MetricsCard({ detail: { content: c, settings: s } }: { detail: ContentD
   );
 }
 
-function TopWordsCard({ detail: { content: c, settings: s }, onReanalyzed }: { detail: ContentDetail; onReanalyzed: () => void }) {
+function TopWordsCard({
+  detail: { content: c, settings: s },
+  onReanalyzed,
+}: {
+  detail: AnalyzedContentDetail;
+  onReanalyzed: () => void;
+}) {
   const toast = useToast();
   const [reanalyzing, setReanalyzing] = useState(false);
 
