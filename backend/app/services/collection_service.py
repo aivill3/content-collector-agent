@@ -160,9 +160,10 @@ def collect_urls(
     return CollectResult(articles=articles, stats=stats, latest_published=latest_published(articles))
 
 
-def reclean_body(raw_body: str) -> str:
+def reclean_body(raw_body: str, title: str = "") -> str:
     """저장된 원본 본문을 지금의 정제 규칙으로 다시 정제한다. 정제 규칙을 고친 뒤 기존 글에 적용할 때 쓴다.
+    title 을 주면 본문 맨 앞의 제목 줄·부제도 지운다 (수집 때와 같다).
 
     길이·언어로 걸러 내지는 않는다 — 기준(소스의 min_body_length)은 호출하는 쪽이 판단한다.
     """
-    return clean_content(raw_body)
+    return clean_content(raw_body, title)

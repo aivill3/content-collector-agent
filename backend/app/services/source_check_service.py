@@ -91,7 +91,7 @@ def _check_one(url: str, min_len: int, korean_only: bool) -> UrlCheck:
     article = extract_body(Article(url=url))
     if not article.body.strip():
         return UrlCheck(url, "fail", article=article)
-    body = clean_content(article.body)
+    body = clean_content(article.body, article.title)
     if len(body) < min_len:
         result = "short"
     elif korean_only and not is_korean(body):

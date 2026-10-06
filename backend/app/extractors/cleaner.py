@@ -39,6 +39,8 @@
                          끝나므로 충돌이 드물지만, 유일한 확률적 규칙임에 유의
   9. 이메일 주소       : 본문 어디에 있든 제거 (사이트가 가린 '[email protected]' 포함)
  10. 공백 노이즈       : 탭, 중복 공백, 중복 개행 정규화
+ 11. 제목 줄·부제      : 제목을 받으면(clean_content(text, title)) 맨 앞의 제목 줄과
+                         바로 뒤 부제(짧고 문장으로 끝나지 않는 줄)를 제거
 
 기사 단위 제외(정제 후 판정):
   - 정제 후 본문이 MIN_CLEAN_LEN(100자) 미만
@@ -540,16 +542,55 @@ CLEAN_STEPS = (
 )
 
 
-def clean_content(text: str) -> str:
-    """본문 1건 정제. 단계와 순서는 CLEAN_STEPS 에 정의돼 있다."""
+# 본문 맨 앞의 제목 줄 + 부제. 추출기가 기사 머리(제목·부제 영역)를 본문으로 가져오는 매체가 있다.
+# (실측 2026-10-01 뉴시스: 제목 + 부제 3줄, Mookas: 제목 전문 + 부제 1줄)
+# 제목은 본문만 봐서는 알 수 없어 CLEAN_STEPS 밖에서 제목을 받아 처리한다.
+TITLE_PREFIX_MIN = 10   # '...' 로 잘린 제목은 남은 앞부분이 이만큼은 돼야 비교한다
+SUBTITLE_MAX_LEN = 60   # 제목 줄 뒤의 이 길이 이하 줄을 부제로 본다
+SUBTITLE_MAX_LINES = 4
+RE_TITLE_ELLIPSIS = re.compile(r"\s*(?:\.{2,}|…)\s*$")
+RE_SENTENCE_TAIL = re.compile(r"[.!?][\"'”’)]?\s*$")   # 문장으로 끝나면 부제가 아니라 본문
+
+
+def _squash(s: str) -> str:
+    return re.sub(r"\s+", "", s)
+
+
+def _is_title_line(line: str, title: str) -> bool:
+    line, title = _squash(line), _squash(title)
+    if not line or not title:
+        return False
+    if line == title:
+        return True
+    # 검색 API 제목은 '…' 로 잘려 온다 — 잘리기 전 앞부분으로 시작하는지 본다
+    prefix = _squash(RE_TITLE_ELLIPSIS.sub("", title))
+    return prefix != title and len(prefix) >= TITLE_PREFIX_MIN and line.startswith(prefix)
+
+
+def remove_title_block(text: str, title: str) -> str:
+    """첫 줄이 제목이면 지우고, 바로 뒤에 이어지는 부제(짧고 문장으로 끝나지 않는 줄)도 지운다.
+    제목 줄이 없으면 아무것도 지우지 않는다 — 부제만 따로 판정하지 않는다."""
+    lines = text.split("\n")
+    if not lines or not _is_title_line(lines[0], title):
+        return text
+    i = 1
+    while (i <= SUBTITLE_MAX_LINES and i < len(lines) and lines[i].strip()
+           and len(lines[i].strip()) <= SUBTITLE_MAX_LEN and not RE_SENTENCE_TAIL.search(lines[i])):
+        i += 1
+    return "\n".join(lines[i:]).strip()
+
+
+def clean_content(text: str, title: str = "") -> str:
+    """본문 1건 정제. 단계와 순서는 CLEAN_STEPS 에 정의돼 있다.
+    title 을 주면 마지막에 본문 맨 앞의 제목 줄·부제를 지운다 (remove_title_block)."""
     if not isinstance(text, str) or not text.strip():
         return ""
     for _, step in CLEAN_STEPS:
         text = step(text)
-    return text
+    return remove_title_block(text, title) if title else text
 
 
-def diagnose(text: str) -> str:
+def diagnose(text: str, title: str = "") -> str:
     """단계별 길이 감소를 한 줄로 요약한다 (제외된 기사 원인 추적용).
 
     본문이 말랐을 때 어느 규칙이 범인인지 로그만 보고 알 수 있어야 한다.
@@ -564,6 +605,11 @@ def diagnose(text: str) -> str:
         text = step(text)
         if len(text) < prev:
             parts.append(f"{name} -{prev - len(text)}")
+        prev = len(text)
+    if title:
+        text = remove_title_block(text, title)
+        if len(text) < prev:
+            parts.append(f"제목·부제 -{prev - len(text)}")
         prev = len(text)
     return " · ".join(parts) + f" = {prev}자"
 
@@ -580,13 +626,13 @@ def clean_all(
     korean_only  False 면 비한국어 판정을 건너뛴다 (해외 사이트 수집용)
     """
     for a in articles:
-        a.body_clean = clean_content(a.body)
+        a.body_clean = clean_content(a.body, a.title)
     result = []
     for a in articles:
         if len(a.body_clean) < min_len:
             log.warning(f"정제 후 본문 부족({len(a.body_clean)}자), 제외: {a.title[:40]}")
             # 어느 규칙이 지웠는지 남긴다. 결과만 찍으면 원인을 좁힐 수 없다.
-            log.warning(f"    단계별: {diagnose(a.body)}")
+            log.warning(f"    단계별: {diagnose(a.body, a.title)}")
             continue
         ratio = korean_ratio(a.body_clean)
         if korean_only and ratio < KOREAN_MIN_RATIO:

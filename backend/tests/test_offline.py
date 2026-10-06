@@ -93,6 +93,24 @@ def test_cleaner_removes_boilerplate():
     assert len(clean_all([Article(title="t", body="짧은 공지 글입니다. 확인 바랍니다.")], min_len=10)) == 1
 
 
+def test_cleaner_removes_title_and_subtitles():
+    body = ("양궁 대표팀은 2일 일본 아이치현 오카자키 중앙종합공원 다목적광장에서 열릴 대회 양궁 리커브 남자 단체전에 출전한다.\n"
+            "유도 대표팀도 같은 날 금메달에 도전한다.")
+    # 제목 그대로 + 부제 3줄 (실측 뉴시스)
+    title = "한국 금맥 캐기 계속…효자 종목 양궁·유도·태권도 출격[오늘의AG]"
+    head = title + "\n양궁, 김제덕·강채영 필두로 금메달 싹쓸이 조준\n'파리 올림픽 銀' 유도 김민종, 첫 AG 정상 도전\n세대교체 이룬 태권도, 종주국 자존심 걸고 출격\n"
+    assert clean_content(head + body, title) == body
+    # 검색 API 제목이 '...' 로 잘린 경우 (실측 Mookas) — 본문 쪽은 전체 제목
+    cut = "국기원 사범교육, 유럽 현장으로… 32개국 124명 독일서 ‘국제사범’ ..."
+    full = "국기원 사범교육, 유럽 현장으로… 32개국 124명 독일서 ‘국제사범’ 연수 성료\nWTA, 독일체육대학교서 제126기 유럽 국제태권도사범 자격교육 실시\n"
+    assert clean_content(full + body, cut) == body
+    # 제목 뒤의 짧은 '문장'은 부제가 아니라 본문이다
+    assert clean_content(title + "\n공로패는 이날 원장이 직접 전달했다.\n" + body, title).startswith("공로패는")
+    # 제목 줄이 없으면 아무것도 지우지 않는다 (짧은 첫 줄이 있어도)
+    assert clean_content("세대교체 이룬 태권도\n" + body, title).startswith("세대교체")
+    assert clean_content(head + body) == clean_content(head + body, "")    # 제목을 안 주면 그대로
+
+
 def test_cleaner_newsis_style_prefix():
     # 사진 기사: 대괄호 프리픽스 + 날짜 + 가려진 이메일 → 캡션 줄 전체 삭제 (실측 2026-10-01 뉴시스)
     caption = ("[도요하시(일본)=뉴시스] 이영환 기자 = 1일 오후(현지 시간) 일본 아이치현 도요하시 체육관에서 열린 "

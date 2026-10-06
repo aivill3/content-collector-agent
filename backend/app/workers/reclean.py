@@ -46,7 +46,7 @@ def reclean_contents(session: Session, workspace_id: uuid.UUID, *, dry_run: bool
     updates: list[tuple[int, str]] = []
     for c in contents.iter_contents(session, workspace_id):
         summary.checked += 1
-        cleaned = reclean_body(c.raw_body)
+        cleaned = reclean_body(c.raw_body, c.title)
         if cleaned == c.cleaned_body:
             continue
         if c.source_id not in min_length:
