@@ -7,3 +7,17 @@ tzdata ; sys_platform == "win32"
 
 # 개발용
 pytest
+
+# --------------------------------------------------
+# site-crawler
+# --------------------------------------------------
+# 1. API 웹 서버 및 스키마 검증
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+
+# 2. 수집 엔진 (3단계 Fallback 파이프라인)
+httpx>=0.27.0        # 1단계: 초고속 비동기 HTTP 수집
+playwright>=1.42.0   # 2단계: JS 동적 게시판 수집 (Headless Chromium)
+crawl4ai>=0.2.7      # 3단계: 복잡한/미지 사이트 범용 수집
