@@ -41,3 +41,10 @@ BOARD_REQUEST_DELAY = float(os.getenv("BOARD_REQUEST_DELAY", "1.0"))
 BOARD_MAX_WORKERS = int(os.getenv("BOARD_MAX_WORKERS", "2"))
 # robots.txt 준수 여부. 외부 판매 서비스라면 끄지 않는 것을 권한다.
 RESPECT_ROBOTS = os.getenv("RESPECT_ROBOTS", "true").lower() != "false"
+
+# ── site-crawler 서버 및 인증 설정 (추가) ───────────────────
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "8000"))
+DEBUG = os.getenv("DEBUG", "true").lower() == "true"
+X_INTERNAL_SECRET = os.getenv("X_INTERNAL_SECRET", "my-super-secret-internal-key")
+MAX_CONCURRENT_SCRAPES = int(os.getenv("MAX_CONCURRENT_SCRAPES", "5"))
