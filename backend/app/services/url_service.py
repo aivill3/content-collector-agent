@@ -90,14 +90,14 @@ class UrlCollectorService:
         parsed_data = self.parser.parse_article_content(html, url)
         return self._build_article_object(parsed_data)
 
-    def _build_article_object(self, data: dict) -> Article:
-        """파싱 결과 딕셔너리를 도메인 Article 값 객체로 변환"""
-        now_kst = datetime.now(KST).isoformat()
+    def _build_article_object(self, data: dict, board_url: str = "") -> Article:
+        """파싱 결과를 기존 content.py의 Article dataclass 규격에 맞게 변환"""
         return Article(
-            url=data["url"],
-            title=data["title"],
-            body=data["body"],
-            body_clean=data["body_clean"],
-            published_at=data.get("published_at") or now_kst,
-            collected_at=now_kst,
+            url=data.get("url", ""),
+            title=data.get("title", ""),
+            body=data.get("body", ""),
+            body_clean=data.get("body_clean", ""),
+            published=data.get("published_at") or "",
+            board_url=board_url,
+            source="website"
         )

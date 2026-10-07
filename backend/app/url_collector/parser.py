@@ -71,12 +71,11 @@ class SmartUrlParser:
     @classmethod
     def parse_article_content(cls, html: str, url: str) -> Dict[str, Any]:
         """단일 페이지 HTML에서 제목, 본문, 정제 본문, 날짜를 추출합니다."""
-        extracted = trafilatura.extract(
+        extracted = trafilatura.bare_extraction(
             html,
             url=url,
             include_links=False,
-            include_images=False,
-            output_format="python"
+            include_images=False
         )
 
         title = ""

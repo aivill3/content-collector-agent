@@ -5,6 +5,8 @@ URL 기반 스마트 수집 패키지 (url_collector)
 - 본문 추출 및 정제
 """
 
-from app.url_collector.service import UrlCollectorService
+from app.url_collector.fetcher import HtmlFetcher
+from app.url_collector.parser import SmartUrlParser
+from app.url_collector.cleaner import TextCleaner
 
-__all__ = ["UrlCollectorService"]
+__all__ = ["HtmlFetcher", "SmartUrlParser", "TextCleaner"]
