@@ -14,11 +14,18 @@
 정제 대상(제거하는 것):
   1. 이미지 캡션 블록  : '|' 로 감싼 HTML 표 셀 (사진 설명 + 촬영 크레딧)
   2. 통신사 캡션 줄    : '(지역=매체) 이름 기자 = 설명. 연.월.일' 형태 (연합뉴스식)
+                         '[지역=매체] 이름 기자 = 설명. 연.월.일. 이메일' 형태 (뉴시스식)
+                         '[지역=매체] 설명 (사진=… 제공) *재판매 및 DB 금지' 형태 (뉴시스식)
                          ※ 같은 프리픽스라도 날짜로 끝나지 않으면 기사 리드로 보고
                             프리픽스만 벗긴 뒤 본문은 보존한다
+  1-1. 요약 박스       : 기사 앞의 자동 요약 + '전체 내용을 이해하기 위해서는…' 안내 (연합뉴스식)
   3. 기자 바이라인     : '지역=이름 기자 [이메일]' 형태의 서명 줄
                          + '[매체명 이름 기자]' 형태의 본문 내 대괄호 바이라인
+                         + 줄 맨 앞 '(매체명 이름 기자)' 소괄호 바이라인
+  5-3. 사진 캡션·출처  : 'ⓒ 매체 이름 기자' 표기(앞의 날짜 포함)와 그 앞의 캡션 (뉴스1식).
+                         붙은 머리글 절단 뒤에 돌린다. 포토 기사는 캡션이 빠져 최소 길이에서 제외된다
   4. 저작권/재배포 문구: 무단전재, 재배포, 저작권자, ⓒ, ©, Copyright 포함 줄
+                         + 매체 고정 꼬리말 줄 ('◎공감언론 뉴시스 …')
   5. 기사 종결 마커    : '(끝)' 으로 시작하는 줄부터 끝까지 절단 (연합뉴스식)
   5-1. 관련기사 섹션   : '관련기사' '많이 본 뉴스' 등 머리글부터 끝까지 절단.
                          기호 없이 제목만 나열되는 매체(무예신문 등) 대응
@@ -30,8 +37,10 @@
   8. 무표식 캡션(휴리스틱): 짧은 줄(100자 이하)이 '모습.'/'장면.'으로 명사형 종결
                          → 사진 캡션으로 판정해 삭제. 본문 문장은 '~했다/~이다'로
                          끝나므로 충돌이 드물지만, 유일한 확률적 규칙임에 유의
-  9. 이메일 주소       : 본문 어디에 있든 제거
+  9. 이메일 주소       : 본문 어디에 있든 제거 (사이트가 가린 '[email protected]' 포함)
  10. 공백 노이즈       : 탭, 중복 공백, 중복 개행 정규화
+ 11. 제목 줄·부제      : 제목을 받으면(clean_content(text, title)) 맨 앞의 제목 줄과
+                         바로 뒤 부제(짧고 문장으로 끝나지 않는 줄)를 제거
 
 기사 단위 제외(정제 후 판정):
   - 정제 후 본문이 MIN_CLEAN_LEN(100자) 미만
@@ -74,14 +83,51 @@ RE_BYLINE = re.compile(
 # 줄 전체가 아니라 문단 속에 박혀 있어도 해당 대괄호 블록만 제거
 RE_BRACKET_BYLINE = re.compile(r"\[[^\[\]]{0,30}(?:기자|특파원)[^\[\]]{0,30}\]")
 
-# 통신사 프리픽스: '(다마스쿠스=연합뉴스) 김동호 특파원 = ' 형태
-# 캡션 줄과 기사 리드 줄이 모두 이 프리픽스로 시작한다 (분기는 날짜 꼬리로)
-RE_AGENCY_PREFIX = re.compile(
-    r"^\s*\([^()]{1,30}=[^()]{1,30}\)\s*[가-힣]{2,4}\s*(?:기자|특파원)\s*=\s*"
-)
+# 줄 맨 앞의 소괄호 바이라인: '(톱스타뉴스 김수아 기자) 독일 쾰른에서 …'
+# 본문의 '(25·용인특례시청)' 같은 괄호와 섞이지 않게 줄 맨 앞, '기자)' 로 닫히는 것만.
+# 통신사 프리픽스 '(서울=연합뉴스) 배진남 기자 =' 는 '기자' 가 괄호 밖이라 걸리지 않는다.
+RE_PAREN_BYLINE = re.compile(r"^(\s*)\([^()=]{0,20}[가-힣]{2,4}\s*(?:기자|특파원)\)\s*", re.MULTILINE)
 
-# 통신사 캡션의 날짜 꼬리: '2026.7.29' / '2026. 7. 29.' 등으로 줄이 끝남
-RE_DATE_TAIL = re.compile(r"\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\s*\.?\s*$")
+# 사진 출처 표기: '… 세리머니를 하고 있다. 2026.10.1 ⓒ 뉴스1 안은나 기자대한민국 윤규성이 …'
+# 표기 바로 앞이 사진 캡션이다. 뉴스1 은 부제·캡션·다음 캡션을 공백 없이 한 줄로 붙여 내보내
+# 줄 단위로는 못 지운다 — 표기를 기준으로 앞 구간을 도려낸다 (strip_photo_captions).
+RE_PHOTO_CREDIT = re.compile(
+    r"\s*(?:\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\.?\s*)?[ⓒ©]\s*[가-힣A-Za-z0-9]{1,10}\s+[가-힣]{2,4}\s*기자"
+)
+# 표기 앞 구간이 이 길이 이하면 통째로 캡션(+ 붙은 부제)으로 보고 지운다.
+# 더 길면 본문 문단에 캡션이 붙은 것으로 보고 마지막 문장(캡션)만 지운다.
+PHOTO_CAPTION_MAX = 200
+RE_SENTENCE_END = re.compile(r"[.!?][\"'”’]?\s+")
+
+# 연합뉴스 요약 박스: 기사 위에 자동 요약 몇 줄 + 이 안내 문구가 붙는다.
+# 요약은 본문에 있는 내용이라, 안내 문구가 앞쪽(SUMMARY_NOTE_MAX_LINE 줄 안)에 있으면 그 위까지 지운다.
+# (실측 2026-09-30 연합뉴스)
+RE_SUMMARY_NOTE = re.compile(r"^\s*전체\s*내용을\s*이해하기\s*위해서는\s*기사\s*본문과\s*함께\s*읽어야\s*합니다\.?\s*$")
+SUMMARY_NOTE_MAX_LINE = 6
+
+# 통신사 프리픽스: 캡션 줄과 기사 리드 줄이 모두 이 프리픽스로 시작한다 (분기는 날짜 꼬리로)
+#   연합뉴스식 '(다마스쿠스=연합뉴스) 김동호 특파원 = '
+#   뉴시스식   '[도요하시(일본)=뉴시스] 이영환 기자 = ' — 대괄호 안 지역명에 괄호가 들어간다
+_AGENCY_TAG = r"^\s*(?:\([^()]{1,30}=[^()]{1,30}\)|\[[^\[\]]{1,30}=[^\[\]]{1,30}\])"
+RE_AGENCY_PREFIX = re.compile(_AGENCY_TAG + r"\s*[가-힣]{2,4}\s*(?:기자|특파원)\s*=\s*")
+
+# 통신사 태그만 있는 줄의 시작: '[서울=뉴시스] ' (기자 이름 없음)
+RE_AGENCY_TAG = re.compile(_AGENCY_TAG)
+
+# 뉴시스 사진 캡션의 꼬리: '… (사진=세계태권도연맹 제공) *재판매 및 DB 금지'
+# 태그로 시작하는 줄이면 캡션이라 줄째 지우고, 아니면 이 꼬리만 떼어 낸다.
+RE_RESALE_TAIL = re.compile(r"\*?\s*재판매\s*및\s*DB\s*금지\s*\.?\s*$", re.IGNORECASE)
+
+# 사이트가 이메일을 가린 자리 (Cloudflare 이메일 보호). '@' 가 없어 RE_EMAIL 로는 안 잡힌다
+RE_EMAIL_PROTECTED = re.compile(r"\[\s*email\s*protected\s*\]", re.IGNORECASE)
+
+# 통신사 캡션의 날짜 꼬리: '2026.7.29' / '2026. 7. 29.' 등으로 줄이 끝남.
+# 뒤에 사진기자 이메일이 붙어도 꼬리로 본다 (뉴시스식 '… 2026.10.01. photo@newsis.com')
+RE_DATE_TAIL = re.compile(
+    r"\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\s*\.?\s*"
+    r"(?:[\w.\-]+@[\w.\-]+\.\w+|\[\s*email\s*protected\s*\])?\s*$",
+    re.IGNORECASE,
+)
 
 # 기사 종결 마커: '(끝)' 으로 시작하는 줄 (연합뉴스식, 이후는 전부 비본문)
 RE_TERMINATOR = re.compile(r"^\s*\(끝\)")
@@ -121,8 +167,13 @@ RE_INLINE_SECTION = re.compile(
 # 뉴스 사이트의 화면 안내 문구 줄. 기사 내용이 아니다.
 # (실측 2026-09-23 KBS: '기사 본문 영역', '읽어주기 기능은 크롬기반의 /
 #  브라우저에서만 사용하실 수 있습니다.')
+# (실측 2026-09-30 톱스타뉴스: Google 선호 출처 안내 'Google 선호 출처로 추가하면 더 자주 보여요.',
+#  'Google에서 톱스타뉴스 자주 보기', 'Google에서 톱스타뉴스를 선택해 주세요.')
+# 'Google에서 …' 로 시작하는 본문 문장이 있을 수 있어 끝말까지 맞춘다.
 RE_UI_LINE = re.compile(
-    r"^\s*(?:기사\s*본문\s*영역|읽어주기\s*기능|브라우저에서만\s*사용)"
+    r"^\s*(?:기사\s*본문\s*영역|읽어주기\s*기능|브라우저에서만\s*사용"
+    r"|Google\s*선호\s*출처"
+    r"|Google에서\s.{1,20}?(?:자주\s*보기|선택해\s*주세요)\.?\s*$)"
 )
 UI_LINE_MAX = 40
 SECTION_HEADER_MAX_LEN = 20  # 이보다 긴 줄은 머리글이 아니라 본문 문장으로 본다
@@ -169,6 +220,12 @@ RE_COPYRIGHT_NOTICE = re.compile(
 # 이 길이를 넘는 줄은 통째로 지우지 않는다. 본문 한 문단이 통째로 들어 있을
 # 수 있어서다. 진짜 저작권 줄은 대개 한 문장이라 이보다 짧다.
 COPYRIGHT_LINE_MAX = 80
+
+# 매체 고정 꼬리말 줄. 저작권 문구는 아니지만 기사마다 똑같이 붙는다.
+# (실측 2026-10-01 뉴시스: '◎공감언론 뉴시스 [email protected]',
+#  '◎공감언론 뉴시스가 독자 여러분의 소중한 제보를 기다립니다.')
+# 저작권 문구처럼 짧은 줄(COPYRIGHT_LINE_MAX 이하)일 때만 지운다.
+RE_OUTLET_FOOTER = re.compile(r"^\s*◎?\s*공감언론\s*뉴시스")
 
 # 외국어 줄 판정. 한국어 기사에 영문 요약·원문이 통째로 붙는 매체가 있다.
 # 줄 단위로 걷어내야 뒤의 언어 판정이 본문만 보고 판단할 수 있다.
@@ -219,13 +276,18 @@ def remove_caption_lines(text: str) -> str:
 
 
 def handle_agency_prefix_lines(text: str) -> str:
-    """통신사 프리픽스 줄 처리 (연합뉴스식). 결정론적 분기:
+    """통신사 프리픽스 줄 처리 (연합뉴스·뉴시스식). 결정론적 분기:
       - 프리픽스 있음 + 날짜로 끝남 → 사진 캡션 → 줄 전체 삭제
       - 프리픽스 있음 + 그 외      → 기사 리드 → 프리픽스만 벗기고 본문 보존
     예) '(다마스쿠스=연합뉴스) 김동호 특파원 = ...청년들. 2026.7.29'  → 삭제
-        '(다마스쿠스=연합뉴스) 김동호 특파원 = "차렷, 경례!"'          → '"차렷, 경례!"'"""
+        '(다마스쿠스=연합뉴스) 김동호 특파원 = "차렷, 경례!"'          → '"차렷, 경례!"'
+    뉴시스 사진 캡션('[서울=뉴시스] … *재판매 및 DB 금지')은 기자 이름이 없어 꼬리로 판정한다."""
     kept = []
     for ln in text.split("\n"):
+        if RE_RESALE_TAIL.search(ln):
+            if RE_AGENCY_TAG.match(ln):
+                continue  # 사진 캡션 줄 삭제
+            ln = RE_RESALE_TAIL.sub("", ln)  # 본문 끝에 붙은 꼬리만 제거
         if RE_AGENCY_PREFIX.match(ln):
             if RE_DATE_TAIL.search(ln):
                 continue  # 캡션 줄 삭제
@@ -247,6 +309,8 @@ def remove_boilerplate_lines(text: str) -> str:
                 continue
             ln = RE_COPYRIGHT_NOTICE.sub(" ", ln)
         if RE_BYLINE.match(ln):
+            continue
+        if len(ln) <= COPYRIGHT_LINE_MAX and RE_OUTLET_FOOTER.match(ln):
             continue
         if len(ln.strip()) <= UI_LINE_MAX and RE_UI_LINE.match(ln):
             continue
@@ -272,10 +336,51 @@ def remove_foreign_lines(text: str) -> str:
 
 
 def strip_bracket_bylines(text: str) -> str:
-    """문단 속에 박힌 '[매체명 이름 기자]' 대괄호 바이라인과
-    '<최지훈 기자>' 꺾쇠 바이라인(줄바꿈으로 쪼개진 경우 포함)을 제거한다."""
+    """문단 속에 박힌 '[매체명 이름 기자]' 대괄호 바이라인,
+    '<최지훈 기자>' 꺾쇠 바이라인(줄바꿈으로 쪼개진 경우 포함),
+    줄 맨 앞의 '(매체명 이름 기자)' 소괄호 바이라인, 'ⓒ 매체 이름 기자' 사진 출처 표기를 제거한다."""
     text = RE_BRACKET_BYLINE.sub("", text)
     text = RE_ANGLE_BYLINE.sub("", text)
+    text = RE_PAREN_BYLINE.sub(r"\1", text)
+    return text
+
+
+def _drop_caption(segment: str) -> str:
+    """출처 표기 앞 구간에서 캡션을 뺀 나머지."""
+    if len(segment.strip()) <= PHOTO_CAPTION_MAX:
+        return ""
+    body = segment.rstrip()
+    cut = max((m.end() for m in RE_SENTENCE_END.finditer(body[:-1])), default=0)
+    return body[:cut]
+
+
+def strip_photo_captions(text: str) -> str:
+    """사진 출처 표기('2026.10.1 ⓒ 뉴스1 안은나 기자')와 그 앞의 캡션을 지운다.
+
+    사진만 있는 기사(포토 기사)는 캡션이 빠지면 본문이 거의 남지 않아 clean_all 의
+    최소 길이 판정에서 제외된다 — 사진 기사를 따로 판정하지 않고 이 경로로 거른다.
+    (실측 2026-10-01 뉴스1 포토 기사 2건이 캡션만으로 116·214자가 돼 저장됐다)
+
+    '붙은 머리글 절단' 뒤에 돌린다 — 표기 바로 뒤에 공백 없이 붙은 '관련 키워드' 가
+    절단점이라, 먼저 표기를 지우면 절단점을 놓친다."""
+    out = []
+    for ln in text.split("\n"):
+        parts, start = [], 0
+        for m in RE_PHOTO_CREDIT.finditer(ln):
+            parts.append(_drop_caption(ln[start:m.start()]))
+            start = m.end()
+        parts.append(ln[start:])
+        out.append(" ".join(p for p in parts if p.strip()) if len(parts) > 1 else ln)
+    return "\n".join(out)
+
+
+def remove_summary_box(text: str) -> str:
+    """기사 앞에 붙은 자동 요약 박스(연합뉴스식)를 안내 문구까지 지운다.
+    안내 문구가 앞쪽에 없으면 아무것도 지우지 않는다 — 본문 중간의 같은 문장은 건드리지 않는다."""
+    lines = text.split("\n")
+    for i, ln in enumerate(lines[:SUMMARY_NOTE_MAX_LINE]):
+        if RE_SUMMARY_NOTE.match(ln):
+            return "\n".join(lines[i + 1:])
     return text
 
 
@@ -380,7 +485,7 @@ def remove_edge_list_blocks(text: str) -> str:
 
 
 def strip_emails(text: str) -> str:
-    return RE_EMAIL.sub("", text)
+    return RE_EMAIL_PROTECTED.sub("", RE_EMAIL.sub("", text))
 
 
 def normalize_whitespace(text: str) -> str:
@@ -421,6 +526,7 @@ def is_korean(text: str) -> bool:
 
 CLEAN_STEPS = (
     ("캡션 줄", remove_caption_lines),
+    ("요약 박스", remove_summary_box),
     ("통신사 프리픽스", handle_agency_prefix_lines),
     ("저작권·바이라인", remove_boilerplate_lines),
     ("대괄호·꺾쇠 바이라인", strip_bracket_bylines),
@@ -428,6 +534,7 @@ CLEAN_STEPS = (
     ("(끝) 절단", truncate_at_terminator),
     ("섹션 머리글 절단", truncate_at_section_header),
     ("붙은 머리글 절단", truncate_at_inline_header),
+    ("사진 캡션·출처", strip_photo_captions),
     ("양끝 목록 블록", remove_edge_list_blocks),
     ("이메일", strip_emails),
     ("외국어 줄", remove_foreign_lines),
@@ -435,16 +542,55 @@ CLEAN_STEPS = (
 )
 
 
-def clean_content(text: str) -> str:
-    """본문 1건 정제. 단계와 순서는 CLEAN_STEPS 에 정의돼 있다."""
+# 본문 맨 앞의 제목 줄 + 부제. 추출기가 기사 머리(제목·부제 영역)를 본문으로 가져오는 매체가 있다.
+# (실측 2026-10-01 뉴시스: 제목 + 부제 3줄, Mookas: 제목 전문 + 부제 1줄)
+# 제목은 본문만 봐서는 알 수 없어 CLEAN_STEPS 밖에서 제목을 받아 처리한다.
+TITLE_PREFIX_MIN = 10   # '...' 로 잘린 제목은 남은 앞부분이 이만큼은 돼야 비교한다
+SUBTITLE_MAX_LEN = 60   # 제목 줄 뒤의 이 길이 이하 줄을 부제로 본다
+SUBTITLE_MAX_LINES = 4
+RE_TITLE_ELLIPSIS = re.compile(r"\s*(?:\.{2,}|…)\s*$")
+RE_SENTENCE_TAIL = re.compile(r"[.!?][\"'”’)]?\s*$")   # 문장으로 끝나면 부제가 아니라 본문
+
+
+def _squash(s: str) -> str:
+    return re.sub(r"\s+", "", s)
+
+
+def _is_title_line(line: str, title: str) -> bool:
+    line, title = _squash(line), _squash(title)
+    if not line or not title:
+        return False
+    if line == title:
+        return True
+    # 검색 API 제목은 '…' 로 잘려 온다 — 잘리기 전 앞부분으로 시작하는지 본다
+    prefix = _squash(RE_TITLE_ELLIPSIS.sub("", title))
+    return prefix != title and len(prefix) >= TITLE_PREFIX_MIN and line.startswith(prefix)
+
+
+def remove_title_block(text: str, title: str) -> str:
+    """첫 줄이 제목이면 지우고, 바로 뒤에 이어지는 부제(짧고 문장으로 끝나지 않는 줄)도 지운다.
+    제목 줄이 없으면 아무것도 지우지 않는다 — 부제만 따로 판정하지 않는다."""
+    lines = text.split("\n")
+    if not lines or not _is_title_line(lines[0], title):
+        return text
+    i = 1
+    while (i <= SUBTITLE_MAX_LINES and i < len(lines) and lines[i].strip()
+           and len(lines[i].strip()) <= SUBTITLE_MAX_LEN and not RE_SENTENCE_TAIL.search(lines[i])):
+        i += 1
+    return "\n".join(lines[i:]).strip()
+
+
+def clean_content(text: str, title: str = "") -> str:
+    """본문 1건 정제. 단계와 순서는 CLEAN_STEPS 에 정의돼 있다.
+    title 을 주면 마지막에 본문 맨 앞의 제목 줄·부제를 지운다 (remove_title_block)."""
     if not isinstance(text, str) or not text.strip():
         return ""
     for _, step in CLEAN_STEPS:
         text = step(text)
-    return text
+    return remove_title_block(text, title) if title else text
 
 
-def diagnose(text: str) -> str:
+def diagnose(text: str, title: str = "") -> str:
     """단계별 길이 감소를 한 줄로 요약한다 (제외된 기사 원인 추적용).
 
     본문이 말랐을 때 어느 규칙이 범인인지 로그만 보고 알 수 있어야 한다.
@@ -459,6 +605,11 @@ def diagnose(text: str) -> str:
         text = step(text)
         if len(text) < prev:
             parts.append(f"{name} -{prev - len(text)}")
+        prev = len(text)
+    if title:
+        text = remove_title_block(text, title)
+        if len(text) < prev:
+            parts.append(f"제목·부제 -{prev - len(text)}")
         prev = len(text)
     return " · ".join(parts) + f" = {prev}자"
 
@@ -475,13 +626,13 @@ def clean_all(
     korean_only  False 면 비한국어 판정을 건너뛴다 (해외 사이트 수집용)
     """
     for a in articles:
-        a.body_clean = clean_content(a.body)
+        a.body_clean = clean_content(a.body, a.title)
     result = []
     for a in articles:
         if len(a.body_clean) < min_len:
             log.warning(f"정제 후 본문 부족({len(a.body_clean)}자), 제외: {a.title[:40]}")
             # 어느 규칙이 지웠는지 남긴다. 결과만 찍으면 원인을 좁힐 수 없다.
-            log.warning(f"    단계별: {diagnose(a.body)}")
+            log.warning(f"    단계별: {diagnose(a.body, a.title)}")
             continue
         ratio = korean_ratio(a.body_clean)
         if korean_only and ratio < KOREAN_MIN_RATIO:

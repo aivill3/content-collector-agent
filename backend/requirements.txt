@@ -1,9 +1,31 @@
+# -*- coding: utf-8 -*-  (한국어 Windows 의 pip 가 cp949 로 읽지 않도록)
 requests
 python-dotenv
 trafilatura          # 본문 추출 (taekwonw-agent 와 동일)
 beautifulsoup4       # 게시판 목록 파싱
 lxml
+lxml_html_clean      # trafilatura(justext) 가 요구 — lxml 5.2 부터 따로 설치
+fastapi              # API 서버 (app/api/)
+uvicorn[standard]
+sqlmodel             # DB 모델 (app/db/) — SQLAlchemy 2 + Pydantic 2
+alembic              # 마이그레이션 (backend/alembic/)
+# psycopg[binary]    # PostgreSQL 로 옮길 때 설치 (DATABASE_URL=postgresql+psycopg://...)
 tzdata ; sys_platform == "win32"
 
 # 개발용
 pytest
+httpx                # FastAPI TestClient
+
+# --------------------------------------------------
+# site-crawler
+# --------------------------------------------------
+# 1. API 웹 서버 및 스키마 검증
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+
+# 2. 수집 엔진 (3단계 Fallback 파이프라인)
+httpx>=0.27.0        # 1단계: 초고속 비동기 HTTP 수집
+playwright>=1.42.0   # 2단계: JS 동적 게시판 수집 (Headless Chromium)
+crawl4ai>=0.2.7      # 3단계: 복잡한/미지 사이트 범용 수집

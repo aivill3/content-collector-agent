@@ -6,23 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Field, FieldError, Input, Select } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
 import { UnderlineTab, UnderlineTabs } from "@/components/ui/underline-tabs";
-import { api } from "@/lib/api";
+import { api, errorText } from "@/lib/api";
+import { shortDate } from "@/lib/labels";
 import { cx } from "@/lib/cx";
-import type { BoardDetectResult, BoardPostPreview } from "@/lib/types";
+import type { BoardDetectResult } from "@/lib/types";
 import { BoardManual, type ManualState } from "./board-manual";
 import { FieldGrid, FormSection } from "./form-section";
 import { scopeSummary, type BoardMode, type FormProps } from "./values";
 
 // SOURCE-003/004 · 2 목록 탐지 / 3 수집 범위
 
-/** 자동 탐지 결과 — 탭을 오가도 남도록 폼 화면이 들고 있는다 */
+/** 자동 탐지 결과 — 탭을 오가도 남도록 폼 화면이 들고 있는다. 미리보기 글은 후보마다 함께 온다 */
 export interface AutoState {
   detect: BoardDetectResult | null;
   candIdx: number;
-  posts: BoardPostPreview[];
 }
 
-export const INITIAL_AUTO: AutoState = { detect: null, candIdx: 0, posts: [] };
+export const INITIAL_AUTO: AutoState = { detect: null, candIdx: 0 };
 
 export function BoardDetectSection({
   form,
@@ -65,7 +65,7 @@ function BoardAuto({ form: { v, set, setErr }, state, setState }: { form: FormPr
   const [detecting, setDetecting] = useState(false);
   const [detectErr, setDetectErr] = useState("");
 
-  // FUNC: FN-SRC-004 — robots.txt 확인 → 목록 수집 → 후보 묶음
+  // FUNC: FN-SRC-004 — robots.txt 확인 → 목록 수집 → 후보 묶음 (묶음별 글 미리보기 포함)
   const detect = async () => {
     const url = v.boardUrl.trim();
     if (!url) return setErr({ boardUrl: "게시판 목록 URL을 입력하세요" });
@@ -74,26 +74,27 @@ function BoardAuto({ form: { v, set, setErr }, state, setState }: { form: FormPr
     setDetecting(true);
     try {
       const d = await api.detectBoard(url);
-      const posts = await api.boardPreview(url, 0);
-      setState({ detect: d, candIdx: 0, posts });
-      set({ listPattern: d.candidates[0]?.pattern ?? "" });
-    } catch {
-      setDetectErr("탐지하지 못했습니다 [문구 확인 필요]");
+      // 편집 중이면 저장해 둔 묶음을 그대로 고른다. 사라졌으면 1순위
+      const saved = d.candidates.findIndex((c) => c.pattern === v.listPattern);
+      const idx = Math.max(0, saved);
+      setState({ detect: d, candIdx: idx });
+      set({ listPattern: d.candidates[idx]?.pattern ?? "" });
+    } catch (e) {
+      setDetectErr(errorText(e, "탐지하지 못했습니다 [문구 확인 필요]"));
     } finally {
       setDetecting(false);
     }
   };
 
-  // FUNC: FN-SRC-005 — 후보 묶음 채택
-  const pick = async (i: number) => {
+  // FUNC: FN-SRC-005 — 후보 묶음 채택 (미리보기는 탐지 결과에 있어 다시 요청하지 않는다)
+  const pick = (i: number) => {
     if (!state.detect) return;
     set({ listPattern: state.detect.candidates[i].pattern });
     setState({ ...state, candIdx: i });
-    const posts = await api.boardPreview(v.boardUrl.trim(), i);
-    setState({ ...state, candIdx: i, posts });
   };
 
   const d = state.detect;
+  const posts = d?.candidates[state.candIdx]?.posts ?? [];
   return (
     <div data-func-id="FN-SRC-004" className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-center gap-3">
@@ -103,14 +104,24 @@ function BoardAuto({ form: { v, set, setErr }, state, setState }: { form: FormPr
         {d ? (
           <span data-ui-id="SOURCE-003-U06" className="flex items-center gap-2.5 text-[13px] text-ink-2">
             <Badge tone={d.robots ? "green" : "orange"}>{d.robots ? "robots.txt 허용" : "robots.txt 차단"}</Badge>
-            {d.httpOk ? "목록 페이지 응답 정상" : "목록 페이지 응답 오류 [문구 확인 필요]"}
+            {/* robots 차단이면 목록 페이지를 요청하지 않는다 */}
+            {!d.robots
+              ? "이 게시판은 수집할 수 없습니다 [문구 확인 필요]"
+              : d.httpOk
+                ? "목록 페이지 응답 정상"
+                : "목록 페이지 응답 오류 [문구 확인 필요]"}
           </span>
         ) : (
           !detecting && <span className="text-[13px] text-muted">목록 URL을 넣고 탐지를 실행하세요 [문구 확인 필요]</span>
         )}
       </div>
       <FieldError>{detectErr}</FieldError>
-      {d && (
+      {d?.httpOk && d.candidates.length === 0 && (
+        <p className="m-0 text-[13px] text-muted">
+          글 목록으로 보이는 링크 묶음을 찾지 못했습니다. 자바스크립트로 목록을 그리는 게시판일 수 있습니다 — &apos;수동 설정&apos; 탭을 사용하세요 [문구 확인 필요]
+        </p>
+      )}
+      {d && d.candidates.length > 0 && (
         <>
           <div data-ui-id="SOURCE-003-U07" data-func-id="FN-SRC-005" role="radiogroup" aria-labelledby="cand-label" className="flex flex-col gap-2">
             <span id="cand-label" className="text-[13px] font-semibold">
@@ -137,17 +148,17 @@ function BoardAuto({ form: { v, set, setErr }, state, setState }: { form: FormPr
           <Table data-ui-id="SOURCE-003-U08">
             <thead>
               <tr>
-                <Th className="w-[62%]">채택 묶음으로 찾은 글 (미리보기)</Th>
-                <Th>날짜</Th>
+                <Th className="w-[45%]">채택 묶음으로 찾은 글 (미리보기)</Th>
+                <Th className="whitespace-nowrap">날짜</Th>
                 <Th>URL</Th>
               </tr>
             </thead>
             <tbody>
-              {state.posts.map((p) => (
+              {posts.map((p) => (
                 <tr key={p.url}>
                   <Td className="py-3">{p.title}</Td>
-                  <Td className="py-3 font-mono text-[13px]">{p.date}</Td>
-                  <Td className="py-3 font-mono text-[13px]">{p.url}</Td>
+                  <Td className="py-3 pr-3 font-mono text-[13px] whitespace-nowrap">{shortDate(p.date)}</Td>
+                  <Td className="py-3 font-mono text-[13px] break-all">{p.url}</Td>
                 </tr>
               ))}
             </tbody>

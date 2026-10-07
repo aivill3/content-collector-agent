@@ -32,7 +32,7 @@ components/
   ui/                   Button · Badge · Card · Table · Field · Pagination · Switch · StatCard ·
                         SegmentedTabs · UnderlineTabs · 상태(로딩·오류·빈·권한 없음) · Toast · Confirm
 lib/
-  api.ts                API 호출의 유일한 진입점 (지금은 목업)
+  api.ts                API 호출의 유일한 진입점 (백엔드 연결 · 목업 전환)
   types.ts              응답 타입
   labels.ts             상태값 → 문구·배지 색
   use-api-data.ts       로딩·오류·새로고침·폴링 훅
@@ -42,9 +42,25 @@ lib/
 화면 파일마다 시안의 `data-screen-id` · `data-ui-id` · `data-func-id` 와 `[확인 필요]` · `[정책 필요]` 표시를 그대로 옮겨 두었다.
 기획서(`../docs/design/spec.txt`)와 대조할 때 쓴다.
 
+## 백엔드 연결
+
+백엔드(FastAPI)에 있는 기능만 실제로 부른다. 지금은 **소스 추가·편집 폼의 확인 버튼 3개**
+(뉴스 검색 테스트 · 게시판 자동 탐지 · URL 확인)와 **콘텐츠 목록·상세·CSV**, 소스 선택지이고, 나머지 화면은 모드와 관계없이 목업이다.
+키워드 관련도·형태소 지표는 백엔드에 없어 live 모드의 콘텐츠 화면은 그 부분을 감춘다 (`analyzed: false`).
+
+```bash
+# 1) 백엔드 (backend/ 에서)
+uvicorn app.api.main:app --reload --port 8000
+# 2) 프론트 — .env.example 을 .env.local 로 복사하고 NEXT_PUBLIC_API_MODE=live
+npm run dev
+```
+
+브라우저는 같은 주소의 `/api/*` 를 부르고 `next.config.ts` 가 `BACKEND_URL`(기본 `http://localhost:8000`)로 넘긴다.
+`NEXT_PUBLIC_API_MODE` 를 바꾸면 dev 서버를 다시 시작해야 한다. 뉴스 검색 테스트는 저장소 루트 `.env` 의 네이버 API 키가 필요하다.
+
 ## 목업
 
-백엔드 API 가 아직 없어 `lib/api.ts` 가 `lib/mock/` 의 데이터를 돌려준다. 새로고침하면 초기화된다.
+`NEXT_PUBLIC_API_MODE` 가 없거나 `mock` 이면(기본) 모든 기능이 `lib/mock/` 의 데이터를 돌려준다. 새로고침하면 초기화된다.
 아무 이메일·비밀번호로 로그인된다. 시안의 Tweaks 대신 URL 파라미터로 상태를 바꿔 본다 (탭을 닫을 때까지 유지).
 
 | 파라미터 | 값 |

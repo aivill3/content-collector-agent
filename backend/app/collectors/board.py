@@ -36,22 +36,16 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
-from urllib.robotparser import RobotFileParser
 
-import requests
 from bs4 import BeautifulSoup, Tag
 
 from app.extractors.article import extract_body, fetch_html
+from app.extractors.robots import allowed
 from app.core.logger import get_logger
 from app.collectors.base import Collector
 from app.domain.content import Article
 from app.processors.deduplication import canonical_url
-from app.core.config import (
-    BOARD_REQUEST_DELAY,
-    KST,
-    REQUEST_TIMEOUT,
-    RESPECT_ROBOTS,
-)
+from app.core.config import BOARD_REQUEST_DELAY, KST
 
 log = get_logger(__name__)
 
@@ -73,32 +67,8 @@ class BoardConfig:
     max_items: int = 50
     include_pattern: str = ""     # 글 URL 이 이 정규식에 맞아야 채택 (선택)
     exclude_notice: bool = False  # '공지' 표시 줄 제외 (상단 고정 공지가 매번 잡히는 것 방지)
-
-
-# ── robots.txt ─────────────────────────────────────────
-
-_robots_cache: dict[str, RobotFileParser | None] = {}
-
-
-def allowed(url: str) -> bool:
-    """robots.txt 가 이 URL 을 허용하는가. robots.txt 를 못 읽으면 허용으로 본다."""
-    if not RESPECT_ROBOTS:
-        return True
-    parts = urlsplit(url)
-    root = f"{parts.scheme}://{parts.netloc}"
-    if root not in _robots_cache:
-        rp: RobotFileParser | None = RobotFileParser()
-        try:
-            resp = requests.get(f"{root}/robots.txt", timeout=REQUEST_TIMEOUT)
-            if resp.status_code == 200:
-                rp.parse(resp.text.splitlines())
-            else:
-                rp = None   # 없음(404 등) = 제한 없음
-        except requests.RequestException:
-            rp = None
-        _robots_cache[root] = rp
-    rp = _robots_cache[root]
-    return True if rp is None else rp.can_fetch("*", url)
+    # ── 자동 탐지 ──
+    list_pattern: str = ""        # 채택한 후보 묶음의 URL 모양. 비우면 매번 1순위 묶음
 
 
 # ── 날짜 ───────────────────────────────────────────────
@@ -257,10 +227,26 @@ def detect_groups(html: str, base: str) -> list[tuple[str, list[tuple[str, str]]
 
 def _posts_auto(html: str, base: str, cfg: BoardConfig) -> list[Article]:
     groups = detect_groups(html, base)
-    if not groups or len(groups[0][1]) < 3:
-        return []
-    shape, links = groups[0]
+    if cfg.list_pattern:
+        # 채택한 묶음이 사라졌으면 1순위로 대신하지 않는다. 엉뚱한 글을 모으는 것보다
+        # 0건으로 드러나는 편이 낫다 (연속 0건 알림으로 이어진다).
+        picked = next(((s, links) for s, links in groups if s == cfg.list_pattern), None)
+        if picked is None:
+            log.warning(f"채택한 묶음이 목록에 없습니다 (사이트 구조 변경?): {cfg.list_pattern}")
+            return []
+    else:
+        if not groups or len(groups[0][1]) < 3:
+            return []
+        picked = groups[0]
+    shape, links = picked
     log.info(f"자동 탐지: {shape} ({len(links)}건)")
+    return group_posts(html, base, links, exclude_notice=cfg.exclude_notice)
+
+
+def group_posts(
+    html: str, base: str, links: list[tuple[str, str]], *, exclude_notice: bool = False,
+) -> list[Article]:
+    """후보 묶음의 링크 → 글 목록. 링크를 감싼 줄에서 날짜·공지 표시를 읽는다."""
     wanted = {canonical_url(u) for u, _ in links}
 
     # 날짜·공지 표시를 보려면 링크의 '줄'이 필요하다. 다시 파싱해 해당 링크를 찾는다.
@@ -275,7 +261,7 @@ def _posts_auto(html: str, base: str, cfg: BoardConfig) -> list[Article]:
     for url, text in links:
         row = rows.get(canonical_url(url))
         row_text = _text(row)
-        if cfg.exclude_notice and _RE_NOTICE.search(row_text[:20]):
+        if exclude_notice and _RE_NOTICE.search(row_text[:20]):
             continue
         # 줄 텍스트에서 제목을 빼고 날짜를 찾는다 (제목 안의 숫자를 날짜로 오인하지 않게)
         rest = row_text.replace(text, " ") if text else row_text
