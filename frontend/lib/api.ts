@@ -1,8 +1,10 @@
 // API 호출은 모두 이 파일을 거친다. 화면·컴포넌트는 lib/mock 을 직접 부르지 않는다.
 //
-// 지금은 백엔드 API 가 없어(backend 는 cli.py 로만 동작) 목업(lib/mock/handlers.ts)을 지연과 함께 돌려준다.
-// 내부 API Endpoint·Request/Response Schema 는 미확정이다. [API 확인 필요]
-// FastAPI 가 생기면 각 함수 본문을 fetch 호출로 바꾸고, 반환 타입(lib/types.ts)은 유지한다.
+// 백엔드(FastAPI, backend/app/api/)가 있는 기능은 NEXT_PUBLIC_API_MODE=live 일 때 /api/* 를 부른다
+// (next.config.ts 가 백엔드로 넘긴다). 그 밖의 기능과 mock 모드는 목업(lib/mock/handlers.ts)을 지연과 함께 돌려준다.
+// 연결된 기능: 소스 점검 3개 (searchTest · detectBoard · checkUrls) · 콘텐츠 목록·상세·CSV · 소스 선택지
+// 나머지 Endpoint·Request/Response Schema 는 미확정이다. [API 확인 필요]
+// 백엔드가 생기면 각 함수 본문을 post/get 호출로 바꾸고, 반환 타입(lib/types.ts)은 유지한다.
 
 import * as mock from "@/lib/mock/handlers";
 import type {
@@ -12,11 +14,12 @@ import type {
   AnalysisSettings,
   AnalysisParams,
   BoardDetectResult,
-  BoardPostPreview,
   CollectResult,
+  Content,
   ContentDetail,
   ContentListParams,
   ContentListResult,
+  ContentSummary,
   DailyCount,
   DashboardData,
   DictKind,
@@ -37,6 +40,151 @@ import type {
 } from "@/lib/types";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** live: 연결된 기능은 백엔드를 부른다 · mock(기본): 전부 목업 */
+const LIVE = process.env.NEXT_PUBLIC_API_MODE === "live";
+
+/** 백엔드가 거절했거나 닿지 않았다. message 는 화면에 그대로 보여 줄 수 있는 문장이다 */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** 화면의 오류 문구 — 백엔드가 알려 준 사유가 있으면 그것을, 없으면 fallback */
+export const errorText = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
+
+async function send<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, init);
+  } catch {
+    throw new ApiError("서버에 연결하지 못했습니다", 0);
+  }
+  if (!res.ok) throw new ApiError(await failReason(res), res.status);
+  return (await res.json()) as T;
+}
+
+function post<T>(path: string, body: unknown): Promise<T> {
+  return send(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
+
+/** 값이 없는(undefined·빈 문자열) 쿼리는 빼고 보낸다 */
+function get<T>(path: string, query: Record<string, string | number | undefined> = {}): Promise<T> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== "") qs.set(k, String(v));
+  return send(qs.size ? `${path}?${qs}` : path);
+}
+
+/** FastAPI 오류 본문 { detail } → 문장. detail 은 문자열이거나 입력 검증 오류 목록이다 */
+async function failReason(res: Response): Promise<string> {
+  const body: unknown = await res.json().catch(() => null);
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && typeof detail[0]?.msg === "string") return `입력값을 확인하세요 (${detail[0].msg})`;
+  // JSON 이 아닌 5xx 는 Next 프록시가 백엔드에 닿지 못한 경우다
+  return res.status >= 500 ? "백엔드 서버에 연결하지 못했습니다" : `요청이 거절되었습니다 (${res.status})`;
+}
+
+// ── 백엔드 응답 → 화면 타입 ──
+// 백엔드 형식(backend/app/schemas/)은 여기서만 다룬다. 화면은 lib/types.ts 의 타입만 본다.
+
+/** backend/app/schemas/contents.py ContentListItem */
+interface BackendContentItem {
+  id: number;
+  title: string;
+  url: string;
+  publisher: string;
+  summary: string; // 검색 API 설명 (정제 안 됨)
+  excerpt: string; // 정제 본문 앞부분
+  collectionPath: "naver" | "board" | "website";
+  sourceId: number;
+  sourceName: string;
+  publishedAt: string | null; // DISPLAY_TZ ISO 8601 (오프셋 포함)
+  collectedAt: string;
+  keywords: string[];
+  bodyLength: number;
+}
+
+interface BackendContentList {
+  items: BackendContentItem[];
+  total: number;
+  page: number;
+  size: number;
+  pageCount: number;
+}
+
+interface BackendContentDetail extends BackendContentItem {
+  boardUrl: string;
+  firstJobId: number;
+  cleanedBody: string;
+  rawBody: string;
+  hits: { keyword: string; rank: number; jobId: number; foundAt: string }[];
+}
+
+const PATH_TYPE: Record<BackendContentItem["collectionPath"], SourceType> = { naver: "news", board: "board", website: "url" };
+
+const CONTENT_PAGE_SIZE = 20;
+const EXPORT_PAGE_SIZE = 100; // 백엔드 한 페이지 상한 (MAX_PAGE_SIZE)
+
+/** 백엔드 시각은 이미 표시 시간대다 — 브라우저 시간대로 바꾸지 않고 글자만 자른다. '2026-09-30T14:20:00+09:00' → '2026-09-30 14:20' */
+const displayTime = (iso: string | null) => (iso ? iso.slice(0, 16).replace("T", " ") : "");
+
+const toParagraphs = (text: string) => text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+
+function toContentSummary(c: BackendContentItem): ContentSummary {
+  return {
+    id: String(c.id),
+    title: c.title,
+    type: PATH_TYPE[c.collectionPath],
+    outlet: c.publisher,
+    published: displayTime(c.publishedAt),
+    isNew: false,
+    keyword: c.keywords[0] ?? null,
+    relevance: null, // 키워드 관련도 분석은 백엔드에 아직 없다
+    // 목록의 요약 줄은 정제 본문 앞부분 — 검색 API 설명은 정제되지 않아 사진 캡션·바이라인이 섞인다
+    summary: c.excerpt || c.summary,
+    sourceName: c.sourceName,
+  };
+}
+
+/** 분석 필드는 빈 값으로 채운다 — ContentDetail.analyzed=false 라 화면이 쓰지 않는다 */
+function toContent(c: BackendContentDetail): Content {
+  return {
+    ...toContentSummary(c),
+    url: c.url,
+    sourceId: String(c.sourceId),
+    collected: displayTime(c.collectedAt),
+    daysAgo: 0,
+    mentions: 0,
+    density: 0,
+    titleHas: false,
+    length: c.bodyLength,
+    metrics: { tokens: 0, unique: 0, nouns: 0, sentences: 0, avgLen: 0, ttr: 0 },
+    topWords: [],
+    analyzedVersion: 0,
+    staleDict: false,
+    paragraphs: toParagraphs(c.cleanedBody),
+    removed: [],
+    rawBody: c.rawBody,
+    hits: c.hits.map((h) => ({ keyword: h.keyword, rank: h.rank, foundAt: displayTime(h.foundAt) })),
+  };
+}
+
+/** 화면 필터 → GET /api/contents 쿼리. 관련도 필터는 백엔드에 없어 보내지 않는다 (목록이 analyzed=false 로 감춘다) */
+function contentQuery(p: Omit<ContentListParams, "page">) {
+  return {
+    q: p.q.trim(),
+    sourceId: p.sourceId === "all" ? undefined : p.sourceId,
+    days: p.period === "all" ? undefined : p.period,
+  };
+}
+
+const CSV_BOM = "﻿"; // 엑셀이 UTF-8 로 읽게
+const csvCell = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
 
 export type LoginResult = { ok: true; user: User } | { ok: false };
 
@@ -68,12 +216,37 @@ export const api = {
 
   /** 콘텐츠 목록 (필터·페이지). 필터는 서버에서 처리하는 것으로 가정 [API 확인 필요] */
   async listContents(params: ContentListParams): Promise<ContentListResult> {
+    if (LIVE) {
+      const r = await get<BackendContentList>("/contents", { ...contentQuery(params), page: params.page, size: CONTENT_PAGE_SIZE });
+      return {
+        items: r.items.map(toContentSummary),
+        total: r.total,
+        page: r.page,
+        pageCount: Math.max(1, r.pageCount),
+        passingMode: "show",
+        analyzed: false,
+      };
+    }
     await wait(300);
     return mock.listContents(params);
   },
 
   /** 현재 필터 결과 전체 CSV (FN-CNT-002). 서버 생성 여부 [API 확인 필요] */
   async exportContents(params: Omit<ContentListParams, "page">): Promise<{ blob: Blob; count: number }> {
+    if (LIVE) {
+      // 백엔드에 CSV 기능이 없어 목록을 끝까지 받아 여기서 만든다. 열은 목업과 같다
+      const rows: BackendContentItem[] = [];
+      for (let page = 1; ; page++) {
+        const r = await get<BackendContentList>("/contents", { ...contentQuery(params), page, size: EXPORT_PAGE_SIZE });
+        rows.push(...r.items);
+        if (page >= r.pageCount) break;
+      }
+      const lines = [
+        ["제목", "출처", "발행일", "수집 경로", "관련도", "URL"].map(csvCell).join(","),
+        ...rows.map((c) => [c.title, c.publisher, displayTime(c.publishedAt), PATH_TYPE[c.collectionPath], "", c.url].map(csvCell).join(",")),
+      ];
+      return { blob: new Blob([CSV_BOM + lines.join("\n")], { type: "text/csv;charset=utf-8" }), count: rows.length };
+    }
     await wait(300);
     const { csv, count } = mock.exportContentsCsv(params);
     return { blob: new Blob([csv], { type: "text/csv;charset=utf-8" }), count };
@@ -81,6 +254,15 @@ export const api = {
 
   /** 콘텐츠 상세. 없으면 null (삭제된 글 처리 정책 [확인 필요]) */
   async getContent(id: string): Promise<ContentDetail | null> {
+    if (LIVE) {
+      if (!/^\d+$/.test(id)) return null; // 백엔드 id 는 숫자다 (목업 id 로 들어온 주소)
+      try {
+        return { content: toContent(await get<BackendContentDetail>(`/contents/${id}`)), analyzed: false };
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null;
+        throw e;
+      }
+    }
     await wait(300);
     return mock.getContent(id);
   },
@@ -111,32 +293,33 @@ export const api = {
     return mock.saveSource(input);
   },
 
-  /** 첫 키워드로 네이버 뉴스 검색 5건 미리보기 — 실제 호출은 서버 경유 (FN-SRC-003) [API 확인 필요] */
+  /** 키워드 하나로 네이버 뉴스 검색 5건 미리보기 — 네이버 키는 서버에만 있다 (FN-SRC-003) */
   async searchTest(keyword: string): Promise<SearchPreview[]> {
+    if (LIVE) return post("/source-checks/search", { keyword });
     await wait(900);
     return mock.searchTest(keyword);
   },
 
-  /** robots.txt 확인 → 목록 수집 → 후보 묶음 (FN-SRC-004) [API 확인 필요] */
+  /** robots.txt 확인 → 목록 페이지 → 후보 묶음과 묶음별 글 미리보기 (FN-SRC-004·005) */
   async detectBoard(url: string): Promise<BoardDetectResult> {
+    if (LIVE) return post("/source-checks/board", { url });
     await wait(1100);
     return mock.detectBoard(url);
   },
 
-  /** 후보 묶음으로 찾은 글 미리보기 (FN-SRC-005) */
-  async boardPreview(url: string, candidateIndex: number): Promise<BoardPostPreview[]> {
-    await wait(300);
-    return mock.boardPreview(candidateIndex);
-  },
-
-  /** 주소별로 본문을 가져올 수 있는지 확인 (FN-SRC-007) */
-  async checkUrls(urls: string[], minLen: number): Promise<UrlCheckResult[]> {
+  /** 주소별로 본문을 가져올 수 있는지 확인 (FN-SRC-007). 한 번에 20개까지 */
+  async checkUrls(urls: string[], opts: { minLen: number; koreanOnly: boolean }): Promise<UrlCheckResult[]> {
+    if (LIVE) return post("/source-checks/urls", { urls, ...opts });
     await wait(1000);
-    return mock.checkUrls(urls, minLen);
+    return mock.checkUrls(urls, opts);
   },
 
   /** 필터 선택지용 소스 이름 목록 */
   async listSourceOptions(): Promise<SourceOption[]> {
+    if (LIVE) {
+      const opts = await get<{ id: number; name: string }[]>("/sources/options");
+      return opts.map((o) => ({ id: String(o.id), name: o.name }));
+    }
     await wait(200);
     return mock.listSourceOptions();
   },

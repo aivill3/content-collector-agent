@@ -1,4 +1,4 @@
-"""로깅. 콘솔 출력 + (선택) 파일 출력. 타임스탬프는 KST 고정.
+"""로깅. 콘솔 출력 + (선택) 파일 출력. 타임스탬프는 DISPLAY_TZ 기준.
 
 taekwonw-agent 의 core/logger.py 를 줄였다. 실행 단계별 로그 파일 이름 추론은
 CLI 전용 기능이라 뺐다. API 서버로 옮기면 서버 쪽 로깅 설정을 따르면 된다.
@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-from app.core.config import BASE_DIR, KST
+from app.core.config import BASE_DIR, DISPLAY_TZ
 
 _FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 _DATEFMT = "%Y-%m-%d %H:%M:%S"
@@ -25,9 +25,9 @@ _NOISY_LOGGERS = {
 _configured = False
 
 
-class KSTFormatter(logging.Formatter):
+class DisplayTZFormatter(logging.Formatter):
     def formatTime(self, record, datefmt=None):
-        dt = datetime.fromtimestamp(record.created, tz=KST)
+        dt = datetime.fromtimestamp(record.created, tz=DISPLAY_TZ)
         return dt.strftime(datefmt or _DATEFMT)
 
 
@@ -36,13 +36,13 @@ def setup(to_file: bool = False, prefix: str = "collect") -> Path | None:
     global _configured
     if _configured:
         return None
-    formatter = KSTFormatter(_FORMAT, datefmt=_DATEFMT)
+    formatter = DisplayTZFormatter(_FORMAT, datefmt=_DATEFMT)
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     path = None
     if to_file:
         log_dir = BASE_DIR / "logs"
         log_dir.mkdir(exist_ok=True)
-        path = log_dir / f"{prefix}_{datetime.now(KST):%Y%m%d_%H%M%S}.log"
+        path = log_dir / f"{prefix}_{datetime.now(DISPLAY_TZ):%Y%m%d_%H%M%S}.log"
         handlers.append(logging.FileHandler(path, encoding="utf-8"))
     root = logging.getLogger()
     root.setLevel(logging.INFO)

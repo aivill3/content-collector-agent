@@ -29,6 +29,12 @@ htmlcov/
 *.egg-info/
 backend/logs/
 backend/data/
+# SQLite DB (기본 위치는 backend/data/app.db — 다른 곳에 둬도 올라가지 않게)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite3
 
 # ── frontend (Next.js) ──
 node_modules/

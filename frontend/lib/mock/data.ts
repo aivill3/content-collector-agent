@@ -226,24 +226,28 @@ export function emptyStore(s: MockStore): MockStore {
 export const mockSearchResults = (kw: string) =>
   [1, 2, 3, 4, 5].map((i) => ({
     title: `${kw} 관련 샘플 기사 제목 ${i}`,
+    url: `https://news${i}.example.com/article/${100 + i}`,
     outlet: ["샘플일보", "샘플신문", "샘플경제", "샘플방송", "샘플지역"][i - 1],
-    date: `09-${29 - i}`,
-    kw,
+    date: `2026-09-${29 - i}T09:00:00+09:00`,
+    keyword: kw,
   }));
 
-export const mockDetect = (url: string) => ({
-  robots: true,
-  httpOk: true,
-  candidates: [
-    { pattern: url.replace(/^https?:\/\//, "").split("?")[0] + "?bo_table=notice&wr_id={n}", links: 15 },
-    { pattern: url.replace(/^https?:\/\//, "").split("/")[0] + "/bbs/board.php?bo_table=free&wr_id={n}", links: 6 },
-    { pattern: url.replace(/^https?:\/\//, "").split("/")[0] + "/page/{n}", links: 3 },
-  ],
-});
-
-export const mockBoardPosts = (candidateIndex: number) =>
+const mockBoardPosts = (label: string, host: string) =>
   [1, 2, 3, 4].map((i) => ({
-    title: candidateIndex === 0 ? `공지 게시글 샘플 제목 ${i}` : `다른 묶음 게시글 ${i}`,
-    date: `09-${28 - i}`,
-    url: `…wr_id=${120 - i}`,
+    title: `${label} ${i}`,
+    date: `2026-09-${28 - i}T00:00:00+09:00`,
+    url: `https://${host}/bbs/board.php?wr_id=${120 - i}`,
   }));
+
+export const mockDetect = (url: string) => {
+  const host = url.replace(/^https?:\/\//, "").split("/")[0];
+  return {
+    robots: true,
+    httpOk: true,
+    candidates: [
+      { pattern: url.replace(/^https?:\/\//, "").split("?")[0] + "?bo_table=notice&wr_id={n}", links: 15, posts: mockBoardPosts("공지 게시글 샘플 제목", host) },
+      { pattern: host + "/bbs/board.php?bo_table=free&wr_id={n}", links: 6, posts: mockBoardPosts("다른 묶음 게시글", host) },
+      { pattern: host + "/page/{n}", links: 3, posts: mockBoardPosts("메뉴 링크", host).slice(0, 3) },
+    ],
+  };
+};

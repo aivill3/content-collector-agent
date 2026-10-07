@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, FieldError, Input, Select } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, errorText } from "@/lib/api";
+import { shortDate } from "@/lib/labels";
 import type { SearchPreview } from "@/lib/types";
 import { FieldGrid, FormSection } from "./form-section";
 import { today, type FormProps } from "./values";
@@ -35,8 +36,8 @@ export function NewsSections({ v, set, err, setErr }: FormProps) {
     setSearching(true);
     try {
       setResults(await api.searchTest(v.keywords[0].kw));
-    } catch {
-      setSearchErr("검색하지 못했습니다 [문구 확인 필요]");
+    } catch (e) {
+      setSearchErr(errorText(e, "검색하지 못했습니다 [문구 확인 필요]"));
     } finally {
       setSearching(false);
     }
@@ -155,6 +156,9 @@ export function NewsSections({ v, set, err, setErr }: FormProps) {
           <span className="text-[13px] text-muted">저장 전에 첫 키워드로 실제 검색 결과 5건을 미리 봅니다</span>
         </div>
         <FieldError>{searchErr}</FieldError>
+        {results?.length === 0 && (
+          <p className="m-0 text-[13px] text-muted">&apos;{v.keywords[0]?.kw}&apos; 검색 결과가 없습니다 [문구 확인 필요]</p>
+        )}
         {results && results.length > 0 && (
           <Table data-ui-id="SOURCE-002-U11">
             <thead>
@@ -167,11 +171,15 @@ export function NewsSections({ v, set, err, setErr }: FormProps) {
             </thead>
             <tbody>
               {results.map((r) => (
-                <tr key={r.title}>
-                  <Td className="py-3">{r.title}</Td>
+                <tr key={r.url}>
+                  <Td className="py-3">
+                    <a href={r.url} target="_blank" rel="noreferrer" className="hover:underline">
+                      {r.title}
+                    </a>
+                  </Td>
                   <Td className="py-3 text-ink-2">{r.outlet}</Td>
-                  <Td className="py-3 font-mono text-[13px]">{r.date}</Td>
-                  <Td className="py-3 text-ink-2">{r.kw}</Td>
+                  <Td className="py-3 font-mono text-[13px]">{shortDate(r.date)}</Td>
+                  <Td className="py-3 text-ink-2">{r.keyword}</Td>
                 </tr>
               ))}
             </tbody>

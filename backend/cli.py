@@ -30,7 +30,7 @@ from app.core import logger
 from app.extractors.article import fetch_html
 from app.domain.content import Article
 from app.services.collection_service import CollectResult, collect_board, collect_keywords, collect_urls
-from app.core.config import BASE_DIR, KST
+from app.core.config import BASE_DIR, DISPLAY_TZ
 from app.collectors.board import BoardConfig, detect_groups, list_posts
 
 OUT_DIR = BASE_DIR / "data" / "output"
@@ -38,7 +38,7 @@ OUT_DIR = BASE_DIR / "data" / "output"
 
 def save(result: CollectResult, prefix: str) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(KST).strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(DISPLAY_TZ).strftime("%Y%m%d_%H%M%S")
     rows = [a.to_dict() for a in result.articles]
     json_path = OUT_DIR / f"{prefix}_{stamp}.json"
     json_path.write_text(json.dumps(
@@ -80,6 +80,7 @@ def _board_config(args) -> BoardConfig:
         max_pages=args.pages,
         max_items=args.max_items,
         include_pattern=args.include or "",
+        list_pattern=args.pattern or "",
         exclude_notice=args.exclude_notice,
     )
 
@@ -112,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         b.add_argument("--pages", type=int, default=1)
         b.add_argument("--max-items", type=int, default=50)
         b.add_argument("--include", help="글 URL 이 맞아야 하는 정규식")
+        b.add_argument("--pattern", help="자동 탐지에서 쓸 후보 묶음 (detect 가 보여 준 URL 모양). 비우면 1순위")
         b.add_argument("--exclude-notice", action="store_true", help="'공지' 줄 제외")
         b.add_argument("--days", type=int, default=None)
         b.add_argument("--min-len", type=int, default=30)

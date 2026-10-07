@@ -22,9 +22,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from app.extractors.cleaner import MIN_CLEAN_LEN, clean_all
+from app.extractors.cleaner import MIN_CLEAN_LEN, clean_all, clean_content
 from app.processors.date_filter import filter_recent, latest_published
 from app.extractors.article import extract_all
+from app.extractors.robots import allowed
 from app.core.logger import get_logger
 from app.domain.content import Article
 from app.processors.deduplication import canonical_url, dedupe
@@ -42,6 +43,7 @@ class CollectResult:
     stats: dict = field(default_factory=dict)          # 단계별 건수
     raw: dict[str, list[dict]] = field(default_factory=dict)  # 키워드별 API 원본
     latest_published: str | None = None                # 다음 실행의 since 값
+    failed_keywords: list[str] = field(default_factory=list)  # 호출이 실패한 키워드 (0건과 구분)
 
 
 def _drop_seen(articles: list[Article], exclude_urls: set[str] | None) -> list[Article]:
@@ -91,6 +93,7 @@ def collect_keywords(
         stats=stats,
         raw=collector.raw,
         latest_published=latest_published(articles),
+        failed_keywords=[r.keyword for r in collector.results if not r.ok],
     )
 
 
@@ -144,9 +147,23 @@ def collect_urls(
     stats["입력"] = len(articles)
     articles = _drop_seen(articles, exclude_urls)
     stats["신규"] = len(articles)
+    # 게시판과 같은 예절 — robots.txt 가 막은 글은 받지 않는다.
+    blocked = [a.url for a in articles if not allowed(a.url)]
+    if blocked:
+        log.warning(f"robots.txt 가 막은 글 {len(blocked)}건 제외: {', '.join(blocked)}")
+        articles = [a for a in articles if a.url not in blocked]
     articles = extract_all(articles)
     stats["본문 확보"] = len(articles)
     articles = clean_all(articles, min_len=min_len, korean_only=korean_only)
     stats["정제 통과"] = len(articles)
     log.info(f"URL 수집 완료: {stats}")
     return CollectResult(articles=articles, stats=stats, latest_published=latest_published(articles))
+
+
+def reclean_body(raw_body: str, title: str = "") -> str:
+    """저장된 원본 본문을 지금의 정제 규칙으로 다시 정제한다. 정제 규칙을 고친 뒤 기존 글에 적용할 때 쓴다.
+    title 을 주면 본문 맨 앞의 제목 줄·부제도 지운다 (수집 때와 같다).
+
+    길이·언어로 걸러 내지는 않는다 — 기준(소스의 min_body_length)은 호출하는 쪽이 판단한다.
+    """
+    return clean_content(raw_body, title)
