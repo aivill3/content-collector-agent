@@ -108,6 +108,38 @@ export interface UrlCheckResult {
   excerpt: string; // 정제 본문 앞부분
 }
 
+// ── URL 수집 (POST /api/v1/scrape) — backend/app/schemas/scrape.py 와 맞춘다. 저장하지 않는다 ──
+
+/** 주소가 가리키는 페이지 유형 — 서버가 자동 감지한다 */
+export type ScrapePageType = "article" | "board" | "unknown";
+
+/** 본문을 받는 데 쓴 엔진 (httpx → playwright → crawl4ai 순서로 시도). 모두 실패하면 failed */
+export type ScrapeTier = "httpx" | "playwright" | "crawl4ai" | "failed";
+
+export interface ScrapedArticle {
+  url: string;
+  title: string;
+  body: string; // 원본
+  bodyClean: string; // 정제본
+  published: string | null; // ISO 8601, 모르면 빈 값
+  boardUrl: string | null; // 게시판 하위 글이면 목록 주소
+}
+
+/** 주소 하나의 수집 결과. 실패해도 HTTP 오류가 아니라 tierUsed === "failed" 로 온다 */
+export interface ScrapeResult {
+  targetUrl: string;
+  pageType: ScrapePageType;
+  tierUsed: ScrapeTier;
+  articles: ScrapedArticle[]; // 단일 글은 1건, 게시판은 하위 글 (최대 maxItemsPerBoard)
+  errorMessage: string | null; // 서버 원문(영문) — 화면에는 tierUsed 로 문구를 만들어 쓴다
+}
+
+export interface ScrapeResponse {
+  totalRequested: number;
+  totalArticles: number;
+  results: ScrapeResult[];
+}
+
 export interface TopWord {
   w: string;
   pos: string;

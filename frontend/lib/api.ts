@@ -2,7 +2,7 @@
 //
 // 백엔드(FastAPI, backend/app/api/)가 있는 기능은 NEXT_PUBLIC_API_MODE=live 일 때 /api/* 를 부른다
 // (next.config.ts 가 백엔드로 넘긴다). 그 밖의 기능과 mock 모드는 목업(lib/mock/handlers.ts)을 지연과 함께 돌려준다.
-// 연결된 기능: 소스 점검 3개 (searchTest · detectBoard · checkUrls) · 콘텐츠 목록·상세·CSV · 소스 선택지
+// 연결된 기능: 소스 점검 3개 (searchTest · detectBoard · checkUrls) · 콘텐츠 목록·상세·CSV · 소스 선택지 · URL 수집 (scrapeUrls)
 // 나머지 Endpoint·Request/Response Schema 는 미확정이다. [API 확인 필요]
 // 백엔드가 생기면 각 함수 본문을 post/get 호출로 바꾸고, 반환 타입(lib/types.ts)은 유지한다.
 
@@ -29,6 +29,7 @@ import type {
   JobListParams,
   JobRow,
   RelatedWord,
+  ScrapeResponse,
   SearchPreview,
   SettingsBundle,
   Source,
@@ -71,6 +72,9 @@ async function send<T>(path: string, init?: RequestInit): Promise<T> {
 function post<T>(path: string, body: unknown): Promise<T> {
   return send(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
+
+/** scrapeUrls 한 번에 보낼 수 있는 주소 수 — checkUrls 와 같게 (사이트마다 요청이 나가고, 프록시 제한 시간이 있다) */
+export const MAX_SCRAPE_URLS = 20;
 
 /** 값이 없는(undefined·빈 문자열) 쿼리는 빼고 보낸다 */
 function get<T>(path: string, query: Record<string, string | number | undefined> = {}): Promise<T> {
@@ -312,6 +316,19 @@ export const api = {
     if (LIVE) return post("/source-checks/urls", { urls, ...opts });
     await wait(1000);
     return mock.checkUrls(urls, opts);
+  },
+
+  /**
+   * 주소별로 단일 글·게시판을 자동 감지해 본문을 수집한다 — 저장하지 않는다 (POST /api/v1/scrape).
+   * 판정(ok·short…)은 없다. 저장 전 점검은 checkUrls 를 쓴다. 주소별 실패는 오류가 아니라 results[].tierUsed === "failed" 로 온다.
+   * 한 번에 MAX_SCRAPE_URLS 개까지, 게시판 하위 글은 maxItemsPerBoard(1~50, 기본 10)건까지.
+   */
+  async scrapeUrls(urls: string[], opts: { maxItemsPerBoard?: number } = {}): Promise<ScrapeResponse> {
+    if (!urls.length) throw new ApiError("주소를 1개 이상 입력하세요", 0);
+    if (urls.length > MAX_SCRAPE_URLS) throw new ApiError(`한 번에 ${MAX_SCRAPE_URLS}개까지 수집할 수 있습니다`, 0);
+    if (LIVE) return post("/v1/scrape", { urls, ...opts });
+    await wait(1500);
+    return mock.scrapeUrls(urls, opts);
   },
 
   /** 필터 선택지용 소스 이름 목록 */

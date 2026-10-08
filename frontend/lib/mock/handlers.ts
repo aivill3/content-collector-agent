@@ -33,6 +33,8 @@ import type {
   JobListParams,
   JobRow,
   RelatedWord,
+  ScrapeResponse,
+  ScrapeResult,
   SearchPreview,
   SettingsBundle,
   Source,
@@ -255,6 +257,36 @@ export function checkUrls(urls: string[], opts: { minLen: number; koreanOnly: bo
     if (opts.koreanOnly && /\/en\//.test(url)) return { ...page, result: "foreign" };
     return { ...page, result: "ok" };
   });
+}
+
+/** URL 수집. 주소 모양으로 결과를 재현한다 — fail 이 들어가면 수집 실패, board·list 가 들어가면 게시판
+ *  (하위 글 maxItemsPerBoard 건, 최대 12건), 그 밖에는 단일 글 */
+export function scrapeUrls(urls: string[], opts: { maxItemsPerBoard?: number }): ScrapeResponse {
+  const maxItems = Math.min(opts.maxItemsPerBoard ?? 10, 12);
+  const results = urls.map((targetUrl, i): ScrapeResult => {
+    const base = { targetUrl, errorMessage: null };
+    if (/fail/.test(targetUrl)) {
+      return { ...base, pageType: "unknown", tierUsed: "failed", articles: [], errorMessage: "All 3 fetch tiers failed" };
+    }
+    const article = (url: string, n: number, boardUrl: string | null) => ({
+      url,
+      title: `샘플 글 제목 ${n}`,
+      body: `샘플 원본 본문 ${n}번입니다.\n\n광고·메뉴 같은 군더더기가 섞여 있을 수 있습니다.`,
+      bodyClean: `샘플 정제 본문 ${n}번입니다. 실제 연결(NEXT_PUBLIC_API_MODE=live)에서는 정제된 본문 전체가 들어옵니다.`,
+      published: `2026-09-${String(27 - (n % 20)).padStart(2, "0")}T10:00:00+09:00`,
+      boardUrl,
+    });
+    if (/board|list/.test(targetUrl)) {
+      const articles = Array.from({ length: maxItems }, (_, n) => article(`${targetUrl.replace(/\/$/, "")}/${n + 1}`, n + 1, targetUrl));
+      return { ...base, pageType: "board", tierUsed: "httpx", articles };
+    }
+    return { ...base, pageType: "article", tierUsed: i % 2 ? "playwright" : "httpx", articles: [article(targetUrl, i + 1, null)] };
+  });
+  return {
+    totalRequested: urls.length,
+    totalArticles: results.reduce((sum, r) => sum + r.articles.length, 0),
+    results,
+  };
 }
 
 // ── 키워드 분석 ── FN-ANL-001~007
