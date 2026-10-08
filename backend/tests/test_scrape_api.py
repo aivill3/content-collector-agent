@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.api.main import app
 from app.api.v1.scrape import get_url_service
 from app.domain.url_collector import PageType, FetchTier, ScrapeResult
 from app.domain.content import Article
@@ -76,24 +76,27 @@ def test_scrape_single_article_success(mock_article_result):
 
     try:
         response = client.post(
-            "/v1/scrape",
+            "/api/v1/scrape",
             json={"urls": ["https://example.com/news/123"]}
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert data["total_requested"] == 1
-        assert data["total_articles"] == 1
+        # JSON 은 camelCase, Enum 값은 소문자
+        assert data["totalRequested"] == 1
+        assert data["totalArticles"] == 1
         assert len(data["results"]) == 1
+        assert "total_requested" not in data
 
         result = data["results"][0]
-        assert result["target_url"] == "https://example.com/news/123"
-        # Enum value(소문자) 또는 PageType / FetchTier 참조로 수정
-        assert result["page_type"] == PageType.ARTICLE.value
-        assert result["tier_used"] == FetchTier.HTTPX.value
+        assert result["targetUrl"] == "https://example.com/news/123"
+        assert result["pageType"] == PageType.ARTICLE.value == "article"
+        assert result["tierUsed"] == FetchTier.HTTPX.value == "httpx"
+        assert result["errorMessage"] is None
         assert len(result["articles"]) == 1
         assert result["articles"][0]["title"] == "테스트 기사 제목"
+        assert result["articles"][0]["bodyClean"] == "정제된 본문 데이터입니다."
         assert result["articles"][0]["published"] == "2026-10-07T09:00:00"
 
     finally:
@@ -109,25 +112,30 @@ def test_scrape_board_success(mock_board_result):
 
     try:
         response = client.post(
-            "/v1/scrape",
+            "/api/v1/scrape",
             json={
                 "urls": ["https://example.com/board/list"],
-                "max_items_per_board": 5
+                "maxItemsPerBoard": 5
             }
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert data["total_requested"] == 1
-        assert data["total_articles"] == 2
+        assert data["totalRequested"] == 1
+        assert data["totalArticles"] == 2
+
+        # 요청의 camelCase 필드가 서비스에 그대로 전달된다
+        mock_service.collect_with_details.assert_awaited_once_with(
+            target=["https://example.com/board/list"],
+            max_items_per_board=5,
+        )
 
         result = data["results"][0]
-        # Enum value(소문자) 참조로 수정
-        assert result["page_type"] == PageType.BOARD.value
-        assert result["tier_used"] == FetchTier.PLAYWRIGHT.value
+        assert result["pageType"] == PageType.BOARD.value == "board"
+        assert result["tierUsed"] == FetchTier.PLAYWRIGHT.value == "playwright"
         assert len(result["articles"]) == 2
-        assert result["articles"][0]["board_url"] == "https://example.com/board/list"
+        assert result["articles"][0]["boardUrl"] == "https://example.com/board/list"
 
     finally:
         app.dependency_overrides.clear()
@@ -136,7 +144,7 @@ def test_scrape_board_success(mock_board_result):
 def test_scrape_validation_error_empty_urls():
     """urls가 빈 배열일 때 유효성 검증 실패 (HTTP 422)"""
     response = client.post(
-        "/v1/scrape",
+        "/api/v1/scrape",
         json={"urls": []}
     )
 
@@ -152,7 +160,7 @@ def test_scrape_internal_server_error():
 
     try:
         response = client.post(
-            "/v1/scrape",
+            "/api/v1/scrape",
             json={"urls": ["https://example.com/error"]}
         )
 

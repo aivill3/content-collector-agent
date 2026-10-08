@@ -24,6 +24,7 @@
   - 소스 점검 3개 (`/api/source-checks/search · board · urls`, 저장 없음)
   - 콘텐츠 조회 (`GET /api/contents`, `GET /api/contents/{id}`) — 프론트 콘텐츠 화면이 live 모드에서 쓴다
   - 소스 선택지 (`GET /api/sources/options`)
+  - URL 수집 (`POST /api/v1/scrape`, 저장 없음) — 단일 글·게시판을 자동 감지해 본문을 돌려준다
 - 수집 실행은 `app/workers/runner.run_source_once` 이고, DB CLI(`python -m app.cli`)가 부른다.
   `backend/cli.py` 는 DB 없이 파일로 저장하는 디버깅용이다.
 - 예정: 스케줄러(next_run_at 계산·Celery), 유저·인증, 키워드 분석, `docker-compose.yml`.
@@ -63,7 +64,9 @@ app/domain/       content.py — Article (파이프라인 값 객체)
 app/collectors/   base.py (Collector 추상 클래스) · news.py · board.py · website.py
 app/extractors/   article.py (다운로드·trafilatura 본문 추출) · cleaner.py (정제) · robots.py
 app/processors/   deduplication.py · date_filter.py
+app/url_collector/ fetcher.py (httpx → Playwright → Crawl4AI 3단계 fallback) · parser.py (게시판/단일 글 판별·본문 파싱) · cleaner.py
 app/services/     collection_service.py — collect_keywords · collect_board · collect_urls
+                  url_service.py — UrlCollectorService (fetcher·parser 로 URL 수집, /api/v1/scrape 가 부른다)
                   source_check_service.py — search_preview · detect_board · check_urls (저장 전 점검)
 app/schemas/      Pydantic 요청·응답 (JSON 은 camelCase, frontend/lib/types.ts 와 맞춘다)
                   source_config.py — 소스 유형별 설정(sources.config) 검증
@@ -71,7 +74,8 @@ app/domain/enums.py  선택지 값 (DB 에는 문자열로 저장)
 app/db/           engine.py (DATABASE_URL) · models.py (SQLModel 테이블) · types.py (UTCDateTime) · seed.py
 app/repositories/ scope.py (워크스페이스 범위 select) · workspaces · sources · jobs · contents (save_collect_result)
 alembic/          마이그레이션. 모델을 바꾸면 revision --autogenerate 후 확인·수정
-app/api/          main.py (FastAPI 앱) · deps.py · routes/ (라우터, 모든 경로는 /api 아래)
+app/api/          main.py (FastAPI 앱, 유일한 진입점) · deps.py · routes/ (라우터, 모든 경로는 /api 아래)
+                  v1/scrape.py — POST /api/v1/scrape (라우터 prefix 는 /v1/scrape, main.py 가 /api 를 붙인다)
 app/workers/      runner.py — run_source_once (job → collect_* → save_collect_result, 실패도 job 에 기록)
                   reclean.py — reclean_contents (저장된 원본을 지금 규칙으로 다시 정제, 짧아진 글은 지우지 않고 알림)
 app/cli.py        DB CLI (add-news-source · run-source · list-contents · reclean-contents · delete-content)

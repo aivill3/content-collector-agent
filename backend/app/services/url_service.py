@@ -1,11 +1,11 @@
 import asyncio
 import logging
-from datetime import datetime
 from typing import List, Union, Optional
 
+from app.core.timeutil import to_display_iso
 from app.domain.content import Article
 from app.domain.url_collector import PageType, FetchTier, ScrapeResult
-from app.core.config import KST
+from app.processors.date_filter import parse_dt
 from app.url_collector.fetcher import HtmlFetcher
 from app.url_collector.parser import SmartUrlParser
 
@@ -49,7 +49,7 @@ class UrlCollectorService:
                 sub_links = self.parser.extract_sub_links(html, base_url=url, limit=max_items_per_board)
                 logger.info(f"[UrlCollector] 하위 글 {len(sub_links)}개 발견")
 
-                tasks = [self._collect_single_article(sub_url) for sub_url in sub_links]
+                tasks = [self._collect_single_article(sub_url, board_url=url) for sub_url in sub_links]
                 sub_articles = [res for res in await asyncio.gather(*tasks) if res]
 
                 results.append(ScrapeResult(
@@ -61,7 +61,7 @@ class UrlCollectorService:
             else:
                 logger.info(f"[UrlCollector] 단일 글 페이지 감지: {url}")
                 parsed_data = self.parser.parse_article_content(html, url)
-                article = self._build_article_object(parsed_data)
+                article = self._build_article_object(parsed_data, board_url="")
 
                 results.append(ScrapeResult(
                     target_url=url,
@@ -82,13 +82,19 @@ class UrlCollectorService:
             articles.extend(res.articles)
         return articles
 
-    async def _collect_single_article(self, url: str) -> Optional[Article]:
-        """하위 링크 1건 수집 및 파싱"""
+    async def _collect_single_article(self, url: str, board_url: str = "") -> Optional[Article]:
+        """글 1건 수집 및 파싱. 게시판 하위 글이면 board_url 에 목록 주소를 넘긴다."""
         html, engine_used = await self.fetcher.fetch(url)
         if engine_used == FetchTier.FAILED or not html:
             return None
         parsed_data = self.parser.parse_article_content(html, url)
-        return self._build_article_object(parsed_data)
+        return self._build_article_object(parsed_data, board_url=board_url)
+
+    @staticmethod
+    def _to_display_published(value: Optional[str]) -> str:
+        """발행일 문자열 → DISPLAY_TZ(KST) ISO 8601. 시간대 표기가 없으면 KST 로 읽고, 못 읽으면 빈 값."""
+        dt = parse_dt(value or "")
+        return (to_display_iso(dt) or "") if dt else ""
 
     def _build_article_object(self, data: dict, board_url: str = "") -> Article:
         """파싱 결과를 기존 content.py의 Article dataclass 규격에 맞게 변환"""
@@ -97,7 +103,7 @@ class UrlCollectorService:
             title=data.get("title", ""),
             body=data.get("body", ""),
             body_clean=data.get("body_clean", ""),
-            published=data.get("published_at") or "",
+            published=self._to_display_published(data.get("published_at")),
             board_url=board_url,
             source="website"
         )

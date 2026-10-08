@@ -68,6 +68,21 @@ class SmartUrlParser:
 
         return links
 
+    @staticmethod
+    def _extracted_to_dict(extracted: Any) -> Dict[str, Any]:
+        """trafilatura.bare_extraction 결과를 dict 로 맞춘다.
+
+        버전에 따라 dict 또는 Document 객체(as_dict() 지원)로 돌아오고, 추출에 실패하면 None 이다.
+        """
+        if not extracted:
+            return {}
+        if isinstance(extracted, dict):
+            return extracted
+        if hasattr(extracted, "as_dict"):
+            return extracted.as_dict()
+        # as_dict 가 없는 객체는 속성으로 읽는다
+        return {key: getattr(extracted, key, None) for key in ("title", "text", "date")}
+
     @classmethod
     def parse_article_content(cls, html: str, url: str) -> Dict[str, Any]:
         """단일 페이지 HTML에서 제목, 본문, 정제 본문, 날짜를 추출합니다."""
@@ -82,10 +97,10 @@ class SmartUrlParser:
         body_raw = ""
         published_at = None
 
-        if extracted and isinstance(extracted, dict):
-            title = extracted.get("title", "")
-            body_raw = extracted.get("text", "")
-            published_at = extracted.get("date", None)
+        data = cls._extracted_to_dict(extracted)
+        title = data.get("title") or ""
+        body_raw = data.get("text") or ""
+        published_at = data.get("date") or None
 
         soup = BeautifulSoup(html, "html.parser")
         if not title and soup.title:

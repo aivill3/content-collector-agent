@@ -1,10 +1,13 @@
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from pydantic import Field
+
 from app.domain.url_collector import PageType, FetchTier
+from app.schemas.base import CamelModel
 
 
-class ScrapeRequest(BaseModel):
-    """URL 수집 요청 DTO"""
+class ScrapeRequest(CamelModel):
+    """URL 수집 요청 DTO. JSON 은 camelCase(maxItemsPerBoard)이고 snake_case 로 보내도 받는다."""
     urls: List[str] = Field(
         ...,
         min_length=1,
@@ -18,7 +21,7 @@ class ScrapeRequest(BaseModel):
     )
 
 
-class ArticleResponse(BaseModel):
+class ArticleResponse(CamelModel):
     """단일 수집 문서 응답 DTO"""
     url: str
     title: str
@@ -28,7 +31,7 @@ class ArticleResponse(BaseModel):
     board_url: Optional[str] = None
 
 
-class ScrapeResultResponse(BaseModel):
+class ScrapeResultResponse(CamelModel):
     """URL별 상세 수집 결과 응답 DTO"""
     target_url: str
     page_type: PageType
@@ -37,7 +40,7 @@ class ScrapeResultResponse(BaseModel):
     error_message: Optional[str] = None
 
 
-class ScrapeResponse(BaseModel):
+class ScrapeResponse(CamelModel):
     """전체 수집 작업 결과 응답 DTO"""
     total_requested: int
     total_articles: int
