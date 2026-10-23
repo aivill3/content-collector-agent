@@ -12,7 +12,8 @@ from app.core.config import BASE_DIR
 from app.db.engine import make_engine
 
 TABLES = {"workspaces", "sources", "source_keywords", "collection_jobs",
-          "job_api_responses", "contents", "content_keyword_hits"}
+          "job_api_responses", "contents", "content_keyword_hits",
+          "content_analyses", "content_terms", "content_keyword_stats"}
 
 
 @pytest.fixture

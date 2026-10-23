@@ -4,10 +4,11 @@ from datetime import datetime, timezone
 import pytest
 
 from app.domain.enums import JobStatus, JobTrigger, SourceType
-from app.repositories import contents, jobs, sources
+from app.repositories import analyses, contents, jobs, sources
 from app.services import collection_service
 from app.services.collection_service import CollectResult
-from app.workers.runner import run_source_once
+from app.workers import analysis
+from app.workers.runner import queue_sources, run_job, run_source_once
 from tests.test_db import KST_ISO, article, item, news_source
 
 URL1, URL2 = "https://news.example.com/1", "https://news.example.com/2"
@@ -129,3 +130,52 @@ def test_other_workspace_source_is_not_found(session, ws_a, ws_b, fake):
     with pytest.raises(LookupError):
         run_source_once(session, ws_b, src.id)
     assert jobs.list_jobs(session, ws_a) == [] and fake.calls == []
+
+
+def test_run_analyzes_saved_contents(session, ws_a, fake):
+    run_source_once(session, ws_a, news_source(session, ws_a).id)
+    for c in contents.list_contents(session, ws_a):
+        a = analyses.get_analysis(session, ws_a, c.id)
+        assert a is not None and a.relevance is not None          # 키워드 수집분이라 판정이 있다
+        assert {s.keyword for s in analyses.list_keyword_stats(session, ws_a, c.id)} == {"태권도", "국기원"}
+
+
+def test_analysis_failure_keeps_job_success(session, ws_a, fake, monkeypatch):
+    def broken(*a, **kw):
+        raise RuntimeError("분석기 오류")
+    monkeypatch.setattr(analysis, "analyze_pending", broken)
+    job = run_source_once(session, ws_a, news_source(session, ws_a).id)
+    assert job.status == JobStatus.SUCCESS and job.collected_count == 2
+    saved = contents.list_contents(session, ws_a)
+    assert len(saved) == 2 and analyses.get_analysis(session, ws_a, saved[0].id) is None
+
+
+def test_queue_sources_skips_busy_and_defaults_to_active(session, ws_a, fake):
+    a = news_source(session, ws_a)
+    b = news_source(session, ws_a)
+    off = news_source(session, ws_a)
+    sources.update_source(session, ws_a, off.id, is_active=False)
+    first = queue_sources(session, ws_a)                     # 사용 중인 소스 전부
+    assert [j.source_id for j in first.jobs] == [a.id, b.id] and first.skipped == []
+    assert all(j.status == JobStatus.QUEUED for j in first.jobs)
+
+    again = queue_sources(session, ws_a, [b.id, off.id, b.id])   # b 는 대기 중, 중복 id 는 한 번만
+    assert [j.source_id for j in again.jobs] == [off.id] and again.skipped == [b.id]
+    assert fake.calls == []                                  # 대기 작업만 만든다
+
+
+def test_queue_sources_unknown_id_creates_nothing(session, ws_a, ws_b, fake):
+    mine, other = news_source(session, ws_a), news_source(session, ws_b)
+    with pytest.raises(LookupError):
+        queue_sources(session, ws_a, [mine.id, other.id])
+    assert jobs.list_jobs(session, ws_a) == []
+
+
+def test_run_job_runs_queued_once(session, ws_a, fake):
+    job = queue_sources(session, ws_a, [news_source(session, ws_a).id]).jobs[0]
+    session.commit()
+    done = run_job(session, ws_a, job.id)
+    assert done.status == JobStatus.SUCCESS and done.collected_count == 2
+    assert run_job(session, ws_a, job.id).status == JobStatus.SUCCESS and len(fake.calls) == 1
+    with pytest.raises(LookupError):
+        run_job(session, ws_a, 999)

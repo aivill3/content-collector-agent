@@ -198,7 +198,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** 키워드 분석 전(백엔드 연결 시) — 수집 정보와 검색 키워드 순위 */
+/** 키워드 분석 전 — 수집 정보와 검색 키워드 순위 */
 function CollectInfoCard({ content: c }: { content: Content }) {
   const mono = "font-mono text-[13px]";
   const hits = c.hits ?? [];
@@ -234,7 +234,7 @@ function CollectInfoCard({ content: c }: { content: Content }) {
           </Table>
         </>
       )}
-      <p className="mt-3.5 mb-0 text-[13px] text-muted">키워드 관련도·형태소 지표는 분석 기능이 연결되면 표시됩니다</p>
+      <p className="mt-3.5 mb-0 text-[13px] text-muted">아직 분석되지 않은 글입니다. 키워드 관련도·형태소 지표는 분석이 끝나면 표시됩니다</p>
     </Card>
   );
 }

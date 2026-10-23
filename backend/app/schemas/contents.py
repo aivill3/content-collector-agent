@@ -1,6 +1,7 @@
 """콘텐츠 조회 API 의 요청·응답. 시각은 DISPLAY_TZ ISO 8601 (DisplayDateTime).
 
 목록 항목에는 본문을 넣지 않는다 (한 페이지가 수 MB 가 될 수 있다). 본문은 상세에서만.
+키워드 분석은 목록에는 관련도만, 상세에는 지표·상위 키워드·키워드별 수치를 담는다 (schemas/analysis.py).
 """
 from datetime import date
 from typing import Literal
@@ -8,8 +9,9 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.db.models import Content, ContentKeywordHit
-from app.domain.enums import CollectionPath
+from app.domain.enums import CollectionPath, Relevance
 from app.repositories.contents import excerpt_of
+from app.schemas.analysis import AnalysisSettingsOut, ContentAnalysisOut
 from app.schemas.base import CamelModel, DisplayDateTime
 
 MAX_PAGE_SIZE = 100
@@ -30,6 +32,7 @@ class ContentListParams(CamelModel):
     days: int | None = Field(None, ge=1)
     date_field: DateField = "collected_at"
     q: str = Field("", max_length=100)      # 제목 검색
+    relevance: Relevance | None = None      # 키워드 관련도 (글의 가장 강한 판정)
     sort: DateField = "collected_at"
     order: Literal["desc", "asc"] = "desc"
 
@@ -56,14 +59,16 @@ class ContentListItem(CamelModel):
     collected_at: DisplayDateTime
     keywords: list[str]              # 이 콘텐츠를 찾은 키워드 (찾은 순서)
     body_length: int
+    relevance: Relevance | None      # 키워드 관련도 — 분석 전이거나 키워드 수집분이 아니면 null
 
     @classmethod
-    def of(cls, c: Content, *, source_name: str, keywords: list[str], excerpt: str) -> "ContentListItem":
+    def of(cls, c: Content, *, source_name: str, keywords: list[str], excerpt: str,
+           relevance: Relevance | None) -> "ContentListItem":
         return cls(
             id=c.id, title=c.title, url=c.url, publisher=c.publisher, summary=c.summary, excerpt=excerpt,
             collection_path=c.collection_path,
             source_id=c.source_id, source_name=source_name, published_at=c.published_at,
-            collected_at=c.collected_at, keywords=keywords, body_length=c.body_length,
+            collected_at=c.collected_at, keywords=keywords, body_length=c.body_length, relevance=relevance,
         )
 
 
@@ -73,6 +78,7 @@ class ContentListResult(CamelModel):
     page: int
     size: int
     page_count: int
+    passing_mode: str                # 분석 설정의 '스쳐 지나감' 처리 — hide 면 서버가 이미 뺐다
 
 
 class ContentHit(CamelModel):
@@ -92,12 +98,17 @@ class ContentDetail(ContentListItem):
     cleaned_body: str
     raw_body: str
     hits: list[ContentHit]
+    analysis: ContentAnalysisOut | None      # 분석 전이면 null
+    analysis_settings: AnalysisSettingsOut   # 판정 기준·표시 항목 (지금 적용 중인 설정)
 
     @classmethod
-    def of_detail(cls, c: Content, *, source_name: str, hits: list[ContentKeywordHit]) -> "ContentDetail":
+    def of_detail(cls, c: Content, *, source_name: str, hits: list[ContentKeywordHit],
+                  analysis: ContentAnalysisOut | None, settings: AnalysisSettingsOut) -> "ContentDetail":
         item = ContentListItem.of(c, source_name=source_name, keywords=[h.keyword for h in hits],
-                                  excerpt=excerpt_of(c.cleaned_body))
+                                  excerpt=excerpt_of(c.cleaned_body),
+                                  relevance=analysis.relevance if analysis else None)
         return cls(
             **item.model_dump(), board_url=c.board_url, first_job_id=c.first_job_id,
             cleaned_body=c.cleaned_body, raw_body=c.raw_body, hits=[ContentHit.of(h) for h in hits],
+            analysis=analysis, analysis_settings=settings,
         )

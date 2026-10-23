@@ -23,10 +23,16 @@
 - API 서버(FastAPI, `app/api/`):
   - 소스 점검 3개 (`/api/source-checks/search · board · urls`, 저장 없음)
   - 콘텐츠 조회 (`GET /api/contents`, `GET /api/contents/{id}`) — 프론트 콘텐츠 화면이 live 모드에서 쓴다
+  - 글 재분석 (`POST /api/contents/{id}/reanalyze`)
   - 소스 선택지 (`GET /api/sources/options`)
-- 수집 실행은 `app/workers/runner.run_source_once` 이고, DB CLI(`python -m app.cli`)가 부른다.
+  - 수집 작업 이력 (`GET /api/jobs`)과 지금 수집 (`POST /api/jobs` — 대기 작업만 만들고 바로 답한다)
+- 수집 실행은 `app/workers/runner.py` 다. DB CLI(`python -m app.cli`)는 `run_source_once` 로 바로 실행하고,
+  API 는 `queue_sources` 로 대기 작업을 만든 뒤 `workers/background.py` 가 서버 안 스레드 하나에서 차례로 `run_job` 을 부른다
+  (스케줄러·Celery 전까지의 임시 실행기. 서버 시작 시 대기·실행 중으로 남은 작업은 실패로 끝낸다).
+  저장 뒤 키워드 분석(형태소 지표·관련도, kiwipiepy)을 한다 (`app/workers/analysis.py`).
   `backend/cli.py` 는 DB 없이 파일로 저장하는 디버깅용이다.
-- 예정: 스케줄러(next_run_at 계산·Celery), 유저·인증, 키워드 분석, `docker-compose.yml`.
+- 예정: 스케줄러(next_run_at 계산·Celery), 유저·인증, `docker-compose.yml`,
+  키워드 분석의 남은 단계(분석 설정·사전 저장, 집계 API, 키워드 분석 화면 연결).
   이 중 무언가를 추가하기 전에는 사용자와 먼저 확인한다.
 
 ### 명령 (모두 `backend/` 에서 실행)
@@ -43,6 +49,7 @@ python -m app.cli add-news-source --name 태권도뉴스 --keyword 태권도 --k
 python -m app.cli run-source 1                    # 소스 1회 수집 → DB 저장
 python -m app.cli list-contents --limit 20
 python -m app.cli reclean-contents --dry-run   # 정제 규칙을 고친 뒤 저장된 글에 다시 적용 (--dry-run 빼면 적용)
+python -m app.cli analyze-contents             # 분석 안 된 글 키워드 분석 (--all 이면 전부 다시)
 python -m app.cli delete-content 6               # 콘텐츠 하나 삭제 (키워드 기록도 함께)
 
 # DB 없이 수집만 (결과는 파일)
@@ -63,21 +70,27 @@ app/domain/       content.py — Article (파이프라인 값 객체)
 app/collectors/   base.py (Collector 추상 클래스) · news.py · board.py · website.py
 app/extractors/   article.py (다운로드·trafilatura 본문 추출) · cleaner.py (정제) · robots.py
 app/processors/   deduplication.py · date_filter.py
+app/analyzers/    morph.py — kiwipiepy 감싸기 (tokenize · split_sentences)
 app/services/     collection_service.py — collect_keywords · collect_board · collect_urls
                   source_check_service.py — search_preview · detect_board · check_urls (저장 전 점검)
+                  analysis_service.py — analyze_text · keyword_stat · judge · top_words (키워드 분석)
 app/schemas/      Pydantic 요청·응답 (JSON 은 camelCase, frontend/lib/types.ts 와 맞춘다)
                   source_config.py — 소스 유형별 설정(sources.config) 검증
 app/domain/enums.py  선택지 값 (DB 에는 문자열로 저장)
+app/domain/analysis.py  AnalysisSettings — 분석 설정 (지금은 DEFAULT_SETTINGS 하나)
 app/db/           engine.py (DATABASE_URL) · models.py (SQLModel 테이블) · types.py (UTCDateTime) · seed.py
-app/repositories/ scope.py (워크스페이스 범위 select) · workspaces · sources · jobs · contents (save_collect_result)
+app/repositories/ scope.py (워크스페이스 범위 select) · workspaces · sources · jobs · contents (save_collect_result) · analyses
 alembic/          마이그레이션. 모델을 바꾸면 revision --autogenerate 후 확인·수정
 app/api/          main.py (FastAPI 앱) · deps.py · routes/ (라우터, 모든 경로는 /api 아래)
-app/workers/      runner.py — run_source_once (job → collect_* → save_collect_result, 실패도 job 에 기록)
+app/workers/      runner.py — queue_sources · run_job · run_source_once (job → collect_* → save_collect_result, 실패도 job 에 기록)
+                  background.py — API '지금 수집'의 실행기 (스레드 하나, 서버 시작 시 중단 작업 정리)
                   reclean.py — reclean_contents (저장된 원본을 지금 규칙으로 다시 정제, 짧아진 글은 지우지 않고 알림)
-app/cli.py        DB CLI (add-news-source · run-source · list-contents · reclean-contents · delete-content)
+                  analysis.py — analyze_pending · analyze_content (분석 + 저장, 수집 뒤 runner 가 부른다)
+app/cli.py        DB CLI (add-news-source · run-source · list-contents · reclean-contents · analyze-contents · delete-content)
 ```
 
-수집기 `collect()` → 중복 제거·기간 필터·기수집 URL 제외 → 본문 추출 → 정제 → `CollectResult`.
+수집기 `collect()` → 중복 제거·기간 필터·기수집 URL 제외 → 본문 추출 → 정제 → `CollectResult` → 저장 → 키워드 분석.
+키워드 분석은 수치(지표·단어 횟수·언급 횟수·밀도)와 판정(관련도)을 저장한다. 판정 기준이 바뀌면 저장된 수치로 판정만 다시 계산한다 (본문 재분석 불필요).
 
 ### 지켜야 할 설계 원칙
 

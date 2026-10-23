@@ -2,7 +2,7 @@
 //
 // 백엔드(FastAPI, backend/app/api/)가 있는 기능은 NEXT_PUBLIC_API_MODE=live 일 때 /api/* 를 부른다
 // (next.config.ts 가 백엔드로 넘긴다). 그 밖의 기능과 mock 모드는 목업(lib/mock/handlers.ts)을 지연과 함께 돌려준다.
-// 연결된 기능: 소스 점검 3개 (searchTest · detectBoard · checkUrls) · 콘텐츠 목록·상세·CSV · 소스 선택지
+// 연결된 기능: 소스 점검 3개 (searchTest · detectBoard · checkUrls) · 콘텐츠 목록·상세·CSV·재분석(관련도·형태소 지표 포함) · 수집 작업 이력·CSV·지금 수집 · 소스 선택지
 // 나머지 Endpoint·Request/Response Schema 는 미확정이다. [API 확인 필요]
 // 백엔드가 생기면 각 함수 본문을 post/get 호출로 바꾸고, 반환 타입(lib/types.ts)은 유지한다.
 
@@ -19,6 +19,7 @@ import type {
   ContentDetail,
   ContentListParams,
   ContentListResult,
+  ContentMetrics,
   ContentSummary,
   DailyCount,
   DashboardData,
@@ -28,7 +29,9 @@ import type {
   DictOrigin,
   JobListParams,
   JobRow,
+  JobStages,
   RelatedWord,
+  Relevance,
   SearchPreview,
   SettingsBundle,
   Source,
@@ -107,6 +110,7 @@ interface BackendContentItem {
   collectedAt: string;
   keywords: string[];
   bodyLength: number;
+  relevance: Relevance | null; // 키워드 관련도 — 분석 전이거나 키워드 수집분이 아니면 null
 }
 
 interface BackendContentList {
@@ -115,6 +119,18 @@ interface BackendContentList {
   page: number;
   size: number;
   pageCount: number;
+  passingMode: AnalysisSettings["passingMode"];
+}
+
+/** backend/app/schemas/analysis.py ContentAnalysisOut */
+interface BackendContentAnalysis {
+  settingsVersion: number;
+  analyzer: string;
+  analyzedAt: string;
+  relevance: Relevance | null;
+  metrics: ContentMetrics;
+  topWords: { word: string; pos: string; count: number; density: number }[];
+  keywords: { keyword: string; mentions: number; density: number; titleHas: boolean; relevance: Relevance }[];
 }
 
 interface BackendContentDetail extends BackendContentItem {
@@ -123,6 +139,8 @@ interface BackendContentDetail extends BackendContentItem {
   cleanedBody: string;
   rawBody: string;
   hits: { keyword: string; rank: number; jobId: number; foundAt: string }[];
+  analysis: BackendContentAnalysis | null; // 분석 전이면 null
+  analysisSettings: AnalysisSettings; // 지금 적용 중인 분석 설정 (AnalysisSettingsOut)
 }
 
 const PATH_TYPE: Record<BackendContentItem["collectionPath"], SourceType> = { naver: "news", board: "board", website: "url" };
@@ -144,29 +162,33 @@ function toContentSummary(c: BackendContentItem): ContentSummary {
     published: displayTime(c.publishedAt),
     isNew: false,
     keyword: c.keywords[0] ?? null,
-    relevance: null, // 키워드 관련도 분석은 백엔드에 아직 없다
+    relevance: c.relevance,
     // 목록의 요약 줄은 정제 본문 앞부분 — 검색 API 설명은 정제되지 않아 사진 캡션·바이라인이 섞인다
     summary: c.excerpt || c.summary,
     sourceName: c.sourceName,
   };
 }
 
-/** 분석 필드는 빈 값으로 채운다 — ContentDetail.analyzed=false 라 화면이 쓰지 않는다 */
+/** 분석 전이면 분석 필드를 빈 값으로 채운다 — ContentDetail.analyzed=false 라 화면이 쓰지 않는다 */
 function toContent(c: BackendContentDetail): Content {
+  const a = c.analysis;
+  // 키워드가 여러 개면 글의 관련도(가장 강한 판정)를 낸 키워드를 보여 준다 (표시 방식 [확인 필요])
+  const stat = a?.keywords.find((k) => k.relevance === a.relevance) ?? a?.keywords[0];
   return {
     ...toContentSummary(c),
+    keyword: stat?.keyword ?? c.keywords[0] ?? null,
     url: c.url,
     sourceId: String(c.sourceId),
     collected: displayTime(c.collectedAt),
     daysAgo: 0,
-    mentions: 0,
-    density: 0,
-    titleHas: false,
+    mentions: stat?.mentions ?? 0,
+    density: stat?.density ?? 0,
+    titleHas: stat?.titleHas ?? false,
     length: c.bodyLength,
-    metrics: { tokens: 0, unique: 0, nouns: 0, sentences: 0, avgLen: 0, ttr: 0 },
-    topWords: [],
-    analyzedVersion: 0,
-    staleDict: false,
+    metrics: a?.metrics ?? { tokens: 0, unique: 0, nouns: 0, sentences: 0, avgLen: 0, ttr: 0 },
+    topWords: a?.topWords.map((w) => ({ w: w.word, pos: w.pos, n: w.count, d: w.density })) ?? [],
+    analyzedVersion: a?.settingsVersion ?? 0,
+    staleDict: false, // 사용자 사전은 아직 없다
     paragraphs: toParagraphs(c.cleanedBody),
     removed: [],
     rawBody: c.rawBody,
@@ -174,17 +196,89 @@ function toContent(c: BackendContentDetail): Content {
   };
 }
 
-/** 화면 필터 → GET /api/contents 쿼리. 관련도 필터는 백엔드에 없어 보내지 않는다 (목록이 analyzed=false 로 감춘다) */
+function toContentDetail(c: BackendContentDetail): ContentDetail {
+  const content = toContent(c);
+  if (!c.analysis) return { content, analyzed: false };
+  const { version, metrics, topN, ttrWarn, denom, posRange, densTitle, minMentions } = c.analysisSettings;
+  return { content, analyzed: true, settings: { version, metrics, topN, ttrWarn, denom, posRange, densTitle, minMentions } };
+}
+
+/** 화면 필터 → GET /api/contents 쿼리 */
 function contentQuery(p: Omit<ContentListParams, "page">) {
   return {
     q: p.q.trim(),
     sourceId: p.sourceId === "all" ? undefined : p.sourceId,
     days: p.period === "all" ? undefined : p.period,
+    relevance: p.relevance === "all" ? undefined : p.relevance,
   };
 }
 
+const RELEVANCE_TEXT: Record<Relevance, string> = { main: "주제 기사", partial: "부분 언급", passing: "스쳐 지나감" };
+
 const CSV_BOM = "﻿"; // 엑셀이 UTF-8 로 읽게
 const csvCell = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+
+/** backend/app/schemas/jobs.py JobListItem */
+interface BackendJob {
+  id: number;
+  sourceId: number;
+  sourceName: string;
+  sourceType: "news_keyword" | "board" | "url" | null;
+  trigger: "scheduled" | "manual";
+  status: "queued" | "running" | "success" | "failed";
+  queuedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  durationSec: number | null;
+  collectedCount: number;
+  stageCounts: Record<string, number>; // CollectResult.stats 그대로 — 키는 한국어, 소스 유형마다 다르다
+  errorMessage: string | null;
+}
+
+const SOURCE_TYPE: Record<NonNullable<BackendJob["sourceType"]>, SourceType> = { news_keyword: "news", board: "board", url: "url" };
+const JOB_STATUS: Record<BackendJob["status"], JobRow["status"]> = { queued: "queued", running: "running", success: "success", failed: "fail" };
+const JOB_STATUS_QUERY: Record<JobRow["status"], BackendJob["status"]> = { queued: "queued", running: "running", success: "success", fail: "failed" };
+
+/** 단계별 건수 → 화면 단계. 게시판은 '목록', URL 은 '입력'이 첫 단계이고 중복 제거·기간 필터 단계가 없어 앞 단계 값을 쓴다 [확인 필요] */
+function toJobStages(s: Record<string, number>): JobStages | undefined {
+  const search = s["검색"] ?? s["목록"] ?? s["입력"];
+  if (search === undefined) return undefined;
+  const dedup = s["중복 제거 후"] ?? search;
+  const period = s["기간 필터 후"] ?? dedup;
+  const fresh = s["신규"] ?? period;
+  const body = s["본문 확보"] ?? fresh;
+  return { search, dedup, period, fresh, body, clean: s["정제 통과"] ?? body };
+}
+
+function toJobRow(j: BackendJob): JobRow {
+  const status = JOB_STATUS[j.status];
+  const active = status === "queued" || status === "running";
+  return {
+    id: String(j.id),
+    time: displayTime(j.startedAt ?? j.queuedAt).slice(5), // 'MM-DD HH:mm'
+    sourceId: String(j.sourceId),
+    mode: j.trigger === "scheduled" ? "정기" : "수동",
+    dur: j.durationSec === null ? null : Math.round(j.durationSec),
+    status,
+    count: active ? null : j.collectedCount,
+    stages: toJobStages(j.stageCounts),
+    reason: j.errorMessage ?? undefined,
+    sourceName: j.sourceName || "—",
+    sourceType: j.sourceType ? SOURCE_TYPE[j.sourceType] : null,
+  };
+}
+
+const JOB_LIMIT = 500; // 백엔드 상한 (MAX_JOB_LIMIT)
+
+/** 화면 필터 → GET /api/jobs 쿼리 */
+function jobQuery(p: JobListParams) {
+  return {
+    sourceId: p.sourceId === "all" ? undefined : p.sourceId,
+    status: p.status === "all" ? undefined : JOB_STATUS_QUERY[p.status],
+    days: p.period,
+    limit: JOB_LIMIT,
+  };
+}
 
 export type LoginResult = { ok: true; user: User } | { ok: false };
 
@@ -223,8 +317,8 @@ export const api = {
         total: r.total,
         page: r.page,
         pageCount: Math.max(1, r.pageCount),
-        passingMode: "show",
-        analyzed: false,
+        passingMode: r.passingMode,
+        analyzed: true,
       };
     }
     await wait(300);
@@ -243,7 +337,7 @@ export const api = {
       }
       const lines = [
         ["제목", "출처", "발행일", "수집 경로", "관련도", "URL"].map(csvCell).join(","),
-        ...rows.map((c) => [c.title, c.publisher, displayTime(c.publishedAt), PATH_TYPE[c.collectionPath], "", c.url].map(csvCell).join(",")),
+        ...rows.map((c) => [c.title, c.publisher, displayTime(c.publishedAt), PATH_TYPE[c.collectionPath], c.relevance ? RELEVANCE_TEXT[c.relevance] : "", c.url].map(csvCell).join(",")),
       ];
       return { blob: new Blob([CSV_BOM + lines.join("\n")], { type: "text/csv;charset=utf-8" }), count: rows.length };
     }
@@ -257,7 +351,7 @@ export const api = {
     if (LIVE) {
       if (!/^\d+$/.test(id)) return null; // 백엔드 id 는 숫자다 (목업 id 로 들어온 주소)
       try {
-        return { content: toContent(await get<BackendContentDetail>(`/contents/${id}`)), analyzed: false };
+        return toContentDetail(await get<BackendContentDetail>(`/contents/${id}`));
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) return null;
         throw e;
@@ -269,6 +363,15 @@ export const api = {
 
   /** 글 하나를 현재 분석 설정으로 재분석 (FN-CNT-007) */
   async reanalyzeContent(id: string): Promise<ContentDetail | null> {
+    if (LIVE) {
+      if (!/^\d+$/.test(id)) return null;
+      try {
+        return toContentDetail(await post<BackendContentDetail>(`/contents/${id}/reanalyze`, {}));
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null;
+        throw e;
+      }
+    }
     await wait(1200);
     return mock.reanalyzeContent(id);
   },
@@ -439,12 +542,23 @@ export const api = {
   // ── 수집 작업 ── FN-JOB-001~004
 
   async listJobs(params: JobListParams): Promise<JobRow[]> {
+    if (LIVE) return (await get<BackendJob[]>("/jobs", jobQuery(params))).map(toJobRow);
     await wait(300);
     return mock.listJobs(params);
   },
 
   /** 현재 필터 결과 CSV (FN-JOB-004) [API 확인 필요] */
   async exportJobs(params: JobListParams): Promise<{ blob: Blob; count: number }> {
+    if (LIVE) {
+      // 백엔드에 CSV 기능이 없어 목록으로 여기서 만든다. 열은 목업과 같다
+      const STATUS = { success: "성공", fail: "실패", running: "실행 중", queued: "대기" } as const;
+      const rows = (await get<BackendJob[]>("/jobs", jobQuery(params))).map(toJobRow);
+      const lines = [
+        ["실행 시각", "소스", "방식", "소요(초)", "상태", "수집"].map(csvCell).join(","),
+        ...rows.map((j) => [j.time, j.sourceName, j.mode, j.dur, STATUS[j.status], j.count].map(csvCell).join(",")),
+      ];
+      return { blob: new Blob([CSV_BOM + lines.join("\n")], { type: "text/csv;charset=utf-8" }), count: rows.length };
+    }
     await wait(300);
     const { csv, count } = mock.exportJobsCsv(params);
     return { blob: new Blob([csv], { type: "text/csv;charset=utf-8" }), count };
@@ -452,8 +566,13 @@ export const api = {
 
   // ── 수집 ── FN-COL-001
 
-  /** 수집 작업 등록. sourceIds 를 생략하면 전체 소스. ("지금 수집" 대상 [확인 필요]) */
+  /** 수집 작업 등록. sourceIds 를 생략하면 사용 중인 소스 전부. ("지금 수집" 대상 [확인 필요]) */
   async runCollect(sourceIds?: string[]): Promise<CollectResult> {
+    // 소스 화면은 아직 목업이라 목업 소스 id(숫자가 아닌 값)는 목업이 처리한다
+    if (LIVE && (sourceIds === undefined || sourceIds.every((id) => /^\d+$/.test(id)))) {
+      const r = await post<{ jobIds: number[]; queued: number; skipped: number }>("/jobs", { sourceIds: sourceIds?.map(Number) });
+      return { jobIds: r.jobIds.map(String), queued: r.queued, skipped: r.skipped };
+    }
     await wait(300);
     return mock.runCollect(sourceIds);
   },

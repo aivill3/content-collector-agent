@@ -23,7 +23,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className={`${plexKr.variable} ${plexMono.variable}`}>
+    // 브라우저 확장이 <html> 에 속성을 덧붙여 생기는 hydration 경고를 막는다 (이 요소 자체 속성만, 자식은 그대로 검사)
+    <html lang="ko" className={`${plexKr.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <body className="min-h-screen">
         <ToastProvider>
           <ConfirmProvider>{children}</ConfirmProvider>

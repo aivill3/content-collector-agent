@@ -17,7 +17,7 @@ content-collector-agent/
 
 | 구분 | 기술 |
 |---|---|
-| 백엔드 | Python 3.11 · FastAPI · SQLModel(SQLAlchemy 2 + Pydantic 2) · Alembic · requests · trafilatura · BeautifulSoup/lxml |
+| 백엔드 | Python 3.11 · FastAPI · SQLModel(SQLAlchemy 2 + Pydantic 2) · Alembic · requests · trafilatura · BeautifulSoup/lxml · kiwipiepy(형태소 분석) |
 | DB | SQLite(개발, `backend/data/app.db`) · PostgreSQL(운영) |
 | 프론트엔드 | Next.js 16.3 (App Router) · React 19 · TypeScript · Tailwind CSS 4 |
 | 테스트 | pytest (네트워크 없이 실행) |
@@ -34,10 +34,11 @@ backend/
 │   ├── collectors/     수집기 — "어떤 글이 있는가" (메타데이터만)
 │   ├── extractors/     본문 다운로드·추출 · 정제 · robots.txt
 │   ├── processors/     중복 제거 · 기간 필터
-│   ├── services/       수집 서비스 · 소스 점검 서비스 (저장하지 않음)
+│   ├── analyzers/      형태소 분석기(Kiwi) 감싸기
+│   ├── services/       수집 · 소스 점검 · 키워드 분석 서비스 (저장하지 않음)
 │   ├── db/             엔진 · 테이블 모델 · 컬럼 타입 · 시드
 │   ├── repositories/   DB 조회·저장 (워크스페이스 범위 강제)
-│   ├── workers/        수집 + 저장을 묶는 실행기
+│   ├── workers/        수집 + 저장, 분석 + 저장을 묶는 실행기
 │   ├── schemas/        API 요청·응답 · 소스 설정 검증 (camelCase)
 │   ├── api/            FastAPI 앱 · 의존성 · 라우터
 │   └── cli.py          DB CLI
@@ -114,7 +115,8 @@ flowchart TD
 | 파일 | 역할 |
 |---|---|
 | `content.py` | `Article` — 파이프라인 값 객체. `body`(원본)와 `body_clean`(정제본)을 둘 다 가진다 |
-| `enums.py` | `SourceType`, `JobStatus`, `CollectionPath` 등 선택지. DB 에는 문자열로 저장 |
+| `enums.py` | `SourceType`, `JobStatus`, `CollectionPath`, `Relevance` 등 선택지. DB 에는 문자열로 저장 |
+| `analysis.py` | `AnalysisSettings` — 분석 설정(지표 표시·품사 범위·분모·관련도 기준). 지금은 `DEFAULT_SETTINGS` 하나 |
 
 **collectors/** — 제목·URL·날짜만 채우고 본문은 비워 둔다
 
@@ -140,19 +142,26 @@ flowchart TD
 | `deduplication.py` | `canonical_url`(추적 파라미터·fragment 제거), `dedupe` |
 | `date_filter.py` | `parse_dt`, `filter_recent`(days·since), `latest_published` |
 
+**analyzers/**
+
+| 파일 | 역할 |
+|---|---|
+| `morph.py` | kiwipiepy 감싸기. `tokenize`(형태·품사·기본형), `split_sentences`, `ANALYZER`(이름·버전). 모델은 처음 쓸 때 한 번 읽는다 |
+
 **services/** — 저장하지 않는다
 
 | 파일 | 역할 |
 |---|---|
 | `collection_service.py` | `collect_keywords` · `collect_board` · `collect_urls` → `CollectResult`(articles, stats, raw, failed_keywords, latest_published) |
 | `source_check_service.py` | 저장 전 점검. `search_preview` · `detect_board` · `check_urls`. 실제 수집과 같은 규칙을 쓴다 |
+| `analysis_service.py` | 키워드 분석. `analyze_text`(글 단위 지표·내용어 횟수), `keyword_stat`(언급 횟수·1,000자당 밀도·제목 포함), `judge`(관련도), `top_words`(품사 범위·분모·불용어 반영) |
 
 **db/**
 
 | 파일 | 역할 |
 |---|---|
 | `engine.py` | `DATABASE_URL` 로 엔진 생성. SQLite 는 `PRAGMA foreign_keys=ON`. `get_session` |
-| `models.py` | SQLModel 테이블 7개 (`WorkspaceScoped` 상속) |
+| `models.py` | SQLModel 테이블 10개 (`WorkspaceScoped` 상속) |
 | `types.py` | `UTCDateTime`(naive 거부), `str_enum` |
 | `seed.py` | 기본 워크스페이스 생성 (`python -m app.db.seed`) |
 
@@ -163,15 +172,18 @@ flowchart TD
 | `scope.py` | `scoped_select`, `get_scoped` — workspace_id 필터를 강제. 다른 워크스페이스 id 는 None |
 | `workspaces.py` | `get_workspace`, `ensure_default_workspace` (`DEFAULT_WORKSPACE_ID`) |
 | `sources.py` | 소스 CRUD, config 검증, 키워드 추가·삭제(`normalize_keyword`) |
-| `jobs.py` | `create_job` → `mark_running` → `finish_job` / `fail_job` |
-| `contents.py` | `save_collect_result`(원본 응답·콘텐츠·키워드 기록 저장), `seen_urls`, 목록·검색·상세, 일별 집계 |
+| `jobs.py` | `create_job` → `mark_running` → `finish_job` / `fail_job` · `list_jobs`(소스·상태·등록 기간 필터) · `active_source_ids` · `fail_interrupted` |
+| `contents.py` | `save_collect_result`(원본 응답·콘텐츠·키워드 기록 저장), `seen_urls`, 목록·검색(관련도 필터)·상세, 일별 집계 |
+| `analyses.py` | 분석 결과 저장·조회 (`save_text_analysis`, `add_keyword_stats`, `clear_analysis`, `relevance_for`), 분석 대상 찾기, `get_settings`(설정 저장 전이라 기본값) |
 
 **workers/**
 
 | 파일 | 역할 |
 |---|---|
-| `runner.py` | `run_source_once` — job 생성 → running(커밋) → `collect_*` → `save_collect_result`(커밋). 예외는 롤백 후 `fail_job` |
-| `reclean.py` | `reclean_contents` — 저장된 원본(raw_body)을 지금 정제 규칙으로 다시 정제해 `cleaned_body`·`body_length` 갱신. 최소 길이 미만이 된 글은 지우지 않고 알려 준다 |
+| `runner.py` | `queue_sources` — 대기 job 생성(대기·실행 중인 소스는 건너뜀) · `run_job` — running(커밋) → `collect_*` → `save_collect_result`(커밋) → 키워드 분석(실패해도 job 은 success), 예외는 롤백 후 `fail_job` · `run_source_once` — CLI 용 (생성 + 바로 실행) |
+| `background.py` | API '지금 수집'의 실행기 — 스레드 하나에서 `run_job` 을 차례로, 서버 시작 시 `recover_interrupted` |
+| `analysis.py` | `analyze_content`(글 하나 다시 분석), `analyze_pending`(분석 안 된 글 + 이미 분석한 글의 새 키워드) |
+| `reclean.py` | `reclean_contents` — 저장된 원본(raw_body)을 지금 정제 규칙으로 다시 정제해 `cleaned_body`·`body_length` 갱신. 최소 길이 미만이 된 글은 지우지 않고 알려 준다. 바뀐 글은 다시 분석한다 |
 
 **schemas/**
 
@@ -180,6 +192,7 @@ flowchart TD
 | `base.py` | `CamelModel`(snake ↔ camelCase), `DisplayDateTime`, `display_iso` |
 | `source_check.py` | 소스 점검 요청·응답 |
 | `contents.py` | 콘텐츠 목록·상세 요청·응답 |
+| `analysis.py` | 분석 설정·글 분석 결과 응답 (`AnalysisSettingsOut`, `ContentAnalysisOut`) |
 | `sources.py` | 소스 선택지 응답 |
 | `source_config.py` | 소스 유형별 `config` 검증 (`NewsKeywordConfig`, `BoardSourceConfig`, `UrlSourceConfig`) |
 
@@ -190,8 +203,9 @@ flowchart TD
 | `main.py` | FastAPI 앱, 라우터 등록(모두 `/api` 아래), `/health` |
 | `deps.py` | `get_current_workspace`(지금은 기본 워크스페이스, 인증을 붙이면 여기만 바꾼다), `get_session`, `not_found` |
 | `routes/source_checks.py` | `POST /api/source-checks/search · board · urls` (저장 없음) |
-| `routes/contents.py` | `GET /api/contents`, `GET /api/contents/{id}` (기간: `from`·`to` 또는 `days`) |
+| `routes/contents.py` | `GET /api/contents`(기간: `from`·`to` 또는 `days`, `relevance`), `GET /api/contents/{id}`(분석 결과 포함), `POST /api/contents/{id}/reanalyze` |
 | `routes/sources.py` | `GET /api/sources/options` (필터 선택지) |
+| `routes/jobs.py` | `GET /api/jobs` (수집 작업 이력, `sourceId`·`status`·`days`·`limit`), `POST /api/jobs` (지금 수집, `sourceIds` 없으면 사용 중인 소스 전부 → 202) |
 
 ### 2.4 수집 흐름
 
@@ -206,7 +220,7 @@ flowchart LR
     G --> H["repositories.contents<br/>save_collect_result"]
 ```
 
-`A`~`G` 는 `services/collection_service.py`, `H` 는 `workers/runner.py` 가 부른다.
+`A`~`G` 는 `services/collection_service.py`, `H` 는 `workers/runner.py` 가 부른다. 저장 뒤 `workers/analysis.analyze_pending` 이 새 글을 분석한다.
 게시판·URL 수집은 `RESPECT_ROBOTS`, `BOARD_REQUEST_DELAY`, `BOARD_MAX_WORKERS` 를 지킨다.
 
 ### 2.5 진입점
@@ -214,7 +228,7 @@ flowchart LR
 | 진입점 | 명령 (`backend/` 에서) | 부르는 것 |
 |---|---|---|
 | API 서버 | `uvicorn app.api.main:app --reload --port 8000` | services(점검) · repositories(조회) |
-| DB CLI | `python -m app.cli add-news-source · run-source · list-contents · reclean-contents · delete-content` | repositories · workers |
+| DB CLI | `python -m app.cli add-news-source · run-source · list-contents · reclean-contents · analyze-contents · delete-content` | repositories · workers |
 | 파일 CLI | `python cli.py keyword · url · detect · board` | services → `data/output/` 에 JSON·CSV |
 | 시드 | `python -m app.db.seed` | repositories.workspaces |
 
@@ -228,7 +242,9 @@ flowchart LR
 | `test_contents_api.py` | 콘텐츠 조회 API |
 | `test_db.py` | 모델·repository·워크스페이스 격리 |
 | `test_reclean.py` | 다시 정제 (dry-run, 원본 보존, 워크스페이스 격리) · 콘텐츠 삭제 |
-| `test_runner.py` | `run_source_once` 성공·실패 (수집 함수는 가짜) |
+| `test_runner.py` | `run_source_once` 성공·실패, 수집 뒤 분석, `queue_sources` 건너뛰기, `run_job` (수집 함수는 가짜) |
+| `test_jobs_api.py` | 작업 이력 조회·필터, 지금 수집(대기 등록·404), 백그라운드 실행과 중단 작업 정리 |
+| `test_analysis.py` | 형태소 지표·관련도 판정·상위 키워드, 분석 저장(워크스페이스 격리·새 키워드·재분석), 분석 API |
 | `test_migrations.py` | 임시 SQLite 에 upgrade·downgrade 실행, 모델과 일치 확인 |
 | `test_timezone.py` | 시간대 규칙 (코드에 고정 오프셋이 없는지 포함) |
 
@@ -288,16 +304,19 @@ flowchart LR
 | 뉴스 검색 테스트 | `POST /api/source-checks/search` |
 | 게시판 자동 탐지 | `POST /api/source-checks/board` |
 | URL 확인 | `POST /api/source-checks/urls` |
-| 콘텐츠 목록 `listContents` | `GET /api/contents` (기간은 `days`, 요약 줄은 정제 본문 앞부분 `excerpt`) |
+| 콘텐츠 목록 `listContents` | `GET /api/contents` (기간은 `days`, 관련도 `relevance`, 요약 줄은 정제 본문 앞부분 `excerpt`) |
 | 콘텐츠 CSV `exportContents` | `GET /api/contents` 를 끝까지 받아 브라우저에서 CSV 생성 |
 | 콘텐츠 상세 `getContent` | `GET /api/contents/{id}` |
+| 글 재분석 `reanalyzeContent` | `POST /api/contents/{id}/reanalyze` |
 | 소스 선택지 `listSourceOptions` | `GET /api/sources/options` |
 
 - 백엔드 응답 형식은 `api.ts` 안에서만 다루고 화면 타입(`lib/types.ts`)으로 옮겨 담는다. 백엔드 시각은 이미 표시 시간대라 브라우저 시간대로 바꾸지 않는다.
-- 키워드 관련도·형태소 지표는 백엔드에 아직 없다. live 응답은 `analyzed: false` 이고, 화면은 관련도 필터·열과 지표·상위 키워드 카드를 감추고 수집 정보(검색 키워드 순위)를 보여 준다.
+- 콘텐츠 목록은 live 에서도 `analyzed: true` 다 (관련도 필터·열 표시). 상세는 분석 결과(`analysis`)가 있으면 관련도·지표·상위 키워드 카드를, 아직 분석 전이면 수집 정보(검색 키워드 순위)를 보여 준다.
+- 키워드가 여러 개인 글의 관련도는 가장 강한 판정이고, 상세는 그 판정을 낸 키워드의 수치를 보여 준다 (표시 방식 [확인 필요]).
 - 소스 선택지를 live 로 바꿔서, 아직 목업인 화면(수집 작업·키워드 분석·사전)의 소스 필터도 live 모드에서는 실제 소스를 보여 준다.
 
 ## 4. 앞으로 붙일 것 (예정)
 
-스케줄러(`next_run_at` 계산·Celery), 유저·인증(`api/deps.get_current_workspace` 교체), 키워드 분석, `docker-compose.yml`.
+스케줄러(`next_run_at` 계산·Celery), 유저·인증(`api/deps.get_current_workspace` 교체), `docker-compose.yml`,
+키워드 분석의 남은 단계 — 분석 설정·사전(불용어·사용자 사전) 저장, 집계 API(핵심어·급상승·적중도·연관어·일별 추이), 키워드 분석·설정·사전 화면 live 연결.
 추가하기 전에 범위를 먼저 정한다 (`CLAUDE.md`).

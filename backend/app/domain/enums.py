@@ -48,3 +48,10 @@ class CollectionPath(StrEnum):
     NAVER = "naver"
     BOARD = "board"
     WEBSITE = "website"
+
+
+class Relevance(StrEnum):
+    """키워드 관련도 판정 (services/analysis_service.judge). 위에서부터 강하다."""
+    MAIN = "main"         # 주제 기사 — 키워드가 주된 내용
+    PARTIAL = "partial"   # 부분 언급 — 일부 단락만 다룸
+    PASSING = "passing"   # 스쳐 지나감 — 한두 번 언급
