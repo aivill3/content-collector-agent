@@ -6,6 +6,7 @@
     python -m app.cli run-source 1
     python -m app.cli list-contents --limit 20
     python -m app.cli reclean-contents --dry-run    # 정제 규칙을 고친 뒤 저장된 글에 다시 적용
+    python -m app.cli analyze-contents              # 분석 안 된 글 키워드 분석 (--all 이면 전부 다시)
     python -m app.cli delete-content 6
 
 DB 없이 수집만 확인하고 파일로 남기려면 backend/cli.py 를 쓴다.
@@ -21,6 +22,7 @@ from app.db.engine import engine
 from app.domain.enums import JobStatus, JobTrigger, SourceType
 from app.repositories import contents, sources
 from app.repositories.workspaces import DEFAULT_WORKSPACE_ID, get_workspace
+from app.workers.analysis import analyze_pending
 from app.workers.reclean import reclean_contents
 from app.workers.runner import run_source_once
 
@@ -91,6 +93,13 @@ def reclean(session: Session, args) -> int:
     return 0
 
 
+def analyze(session: Session, args) -> int:
+    ws = _workspace(session)
+    result = analyze_pending(session, ws.id, reanalyze_all=args.all)
+    print(f"키워드 분석: 본문 분석 {result.analyzed}건 · 새 키워드 수치만 더한 글 {result.keyword_stats}건")
+    return 0
+
+
 def delete_content(session: Session, args) -> int:
     ws = _workspace(session)
     c = contents.get_content(session, ws.id, args.content_id)
@@ -124,13 +133,16 @@ def main(argv: list[str] | None = None) -> int:
     rc = sub.add_parser("reclean-contents", help="저장된 글을 지금의 정제 규칙으로 다시 정제")
     rc.add_argument("--dry-run", action="store_true", help="바꾸지 않고 바뀔 글만 보여 준다")
 
+    an = sub.add_parser("analyze-contents", help="저장된 글 키워드 분석 (형태소 지표·관련도)")
+    an.add_argument("--all", action="store_true", help="이미 분석한 글도 모두 다시 분석")
+
     d = sub.add_parser("delete-content", help="콘텐츠 하나 삭제 (키워드 기록도 함께)")
     d.add_argument("content_id", type=int)
 
     args = p.parse_args(argv)
     logger.setup(to_file=True, prefix=args.cmd)
     handler = {"add-news-source": add_news_source, "run-source": run_source, "list-contents": list_contents,
-               "reclean-contents": reclean, "delete-content": delete_content}
+               "reclean-contents": reclean, "analyze-contents": analyze, "delete-content": delete_content}
     with Session(engine) as session:
         return handler[args.cmd](session, args)
 

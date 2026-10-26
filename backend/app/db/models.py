@@ -28,6 +28,7 @@ from app.domain.enums import (
     JobStatus,
     JobTrigger,
     KeywordOrigin,
+    Relevance,
     ScheduleType,
     SourceType,
     WorkspaceType,
@@ -191,3 +192,57 @@ class ContentKeywordHit(WorkspaceScoped, table=True):
     rank: int                                    # 검색 결과 순위 (1부터)
     job_id: int = Field(foreign_key="collection_jobs.id", ondelete="RESTRICT", index=True)
     found_at: datetime = _created_at()
+
+
+# ── 키워드 분석 (services/analysis_service.py · workers/analysis.py) ──
+# 수치만 저장하고 판정(relevance)은 설정으로 다시 계산한다 (domain/analysis.py).
+# 콘텐츠를 지우면 함께 지워진다 (CASCADE).
+
+class ContentAnalysis(WorkspaceScoped, table=True):
+    """콘텐츠 하나의 글 단위 지표. 콘텐츠마다 한 행 — 재분석하면 덮어쓴다."""
+    __tablename__ = "content_analyses"
+    __table_args__ = (sa.UniqueConstraint("content_id", name="uq_content_analyses_content_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    content_id: int = Field(foreign_key="contents.id", ondelete="CASCADE")
+    settings_version: int                        # 분석할 때의 분석 설정 버전
+    analyzer: str = Field(max_length=40)         # 형태소 분석기·버전 (analyzers/morph.ANALYZER)
+    body_length: int                             # 분석한 정제 본문 길이
+    tokens: int
+    unique_tokens: int
+    nouns: int
+    sentences: int
+    avg_sentence_len: float                      # 문장당 평균 글자 수
+    ttr: float                                   # 어휘 다양도 = unique_tokens / tokens
+    # 키워드별 판정 중 가장 강한 것 (content_keyword_stats.relevance). 키워드 수집분이 아니면 NULL
+    relevance: Relevance | None = Field(default=None, sa_type=str_enum(Relevance), index=True)
+    analyzed_at: datetime = _created_at()
+
+
+class ContentTerm(WorkspaceScoped, table=True):
+    """콘텐츠 본문에 나온 내용어와 횟수. 상위 키워드·밀도·핵심어 집계의 원천이다."""
+    __tablename__ = "content_terms"
+    __table_args__ = (
+        sa.UniqueConstraint("content_id", "term", "pos", name="uq_content_terms_content_id_term_pos"),
+        sa.Index("ix_content_terms_workspace_id_term", "workspace_id", "term"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    content_id: int = Field(foreign_key="contents.id", ondelete="CASCADE", index=True)
+    term: str = Field(max_length=100)            # 명사·외국어는 형태, 동사·형용사는 기본형('열리다')
+    pos: str = Field(max_length=10)              # NNG · NNP · VV · VA · SL
+    count: int
+
+
+class ContentKeywordStat(WorkspaceScoped, table=True):
+    """콘텐츠를 찾은 키워드(content_keyword_hits)마다 본문에서의 언급 수치와 판정."""
+    __tablename__ = "content_keyword_stats"
+    __table_args__ = (sa.UniqueConstraint("content_id", "keyword", name="uq_content_keyword_stats_content_id_keyword"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    content_id: int = Field(foreign_key="contents.id", ondelete="CASCADE", index=True)
+    keyword: str = Field(max_length=100)
+    mentions: int
+    density: float                               # 1,000자당 언급 횟수
+    title_has: bool
+    relevance: Relevance = Field(sa_type=str_enum(Relevance))

@@ -73,8 +73,9 @@ def test_list_item_shape_has_no_body(client, session):
         source_name="태권도 뉴스")
     x = client.get("/api/contents").json()["items"][0]
     assert set(x) == {"id", "title", "url", "publisher", "summary", "excerpt", "collectionPath", "sourceId",
-                      "sourceName", "publishedAt", "collectedAt", "keywords", "bodyLength"}
+                      "sourceName", "publishedAt", "collectedAt", "keywords", "bodyLength", "relevance"}
     assert x["summary"] == "요약" and x["excerpt"] == "정제 본문"
+    assert x["relevance"] is None                              # 분석 전
     assert x["sourceName"] == "태권도 뉴스" and x["keywords"] == ["태권도"] and x["collectionPath"] == "naver"
     assert x["collectedAt"] == "2026-09-30T14:20:00+09:00"     # DISPLAY_TZ ISO
     assert x["publishedAt"] == "2026-09-30T08:00:00+09:00"

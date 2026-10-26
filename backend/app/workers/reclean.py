@@ -6,6 +6,7 @@
 원본(raw_body)에서 다시 정제해 cleaned_body·body_length 만 바꾼다. 원본은 그대로라 몇 번 실행해도 결과가 같다.
 정제 후 소스의 최소 길이(min_body_length)보다 짧아진 글도 지우지 않는다 — 목록(short)으로 알려 주고
 지울지는 사람이 정한다. 수집 때라면 저장되지 않았을 글이다.
+정제 본문이 바뀐 글은 키워드 분석도 다시 한다 (workers/analysis).
 """
 import uuid
 from dataclasses import dataclass, field
@@ -13,8 +14,9 @@ from dataclasses import dataclass, field
 from sqlmodel import Session
 
 from app.core.logger import get_logger
-from app.repositories import contents, sources
+from app.repositories import analyses, contents, sources
 from app.services.collection_service import reclean_body
+from app.workers import analysis
 
 log = get_logger(__name__)
 
@@ -59,6 +61,8 @@ def reclean_contents(session: Session, workspace_id: uuid.UUID, *, dry_run: bool
         return summary
     for content_id, cleaned in updates:
         contents.update_cleaned_body(session, workspace_id, content_id, cleaned)
+    analyses.clear_analysis(session, workspace_id, [content_id for content_id, _ in updates])
     session.commit()
+    analysis.analyze_pending(session, workspace_id)
     log.info(f"다시 정제: {summary.checked}건 중 {len(updates)}건 변경")
     return summary

@@ -6,6 +6,7 @@
 이 순서로 부르는 실행 함수는 워커 단계에서 만든다.
 """
 import uuid
+from datetime import datetime
 
 from sqlmodel import Session, col
 
@@ -30,11 +31,36 @@ def get_job(session: Session, workspace_id: uuid.UUID, job_id: int) -> Collectio
 
 
 def list_jobs(session: Session, workspace_id: uuid.UUID, *, source_id: int | None = None,
+              status: JobStatus | None = None, queued_range: tuple[datetime, datetime] | None = None,
               limit: int = 50) -> list[CollectionJob]:
+    """최근 작업부터. queued_range 는 UTC [start, end) — timeutil.days_to_utc_range 로 만든다."""
     stmt = scoped_select(CollectionJob, workspace_id)
     if source_id is not None:
         stmt = stmt.where(CollectionJob.source_id == source_id)
+    if status is not None:
+        stmt = stmt.where(CollectionJob.status == JobStatus(status))
+    if queued_range is not None:
+        start, end = queued_range
+        stmt = stmt.where(col(CollectionJob.queued_at) >= start, col(CollectionJob.queued_at) < end)
     return list(session.exec(stmt.order_by(col(CollectionJob.id).desc()).limit(limit)))
+
+
+ACTIVE = (JobStatus.QUEUED, JobStatus.RUNNING)
+
+
+def active_source_ids(session: Session, workspace_id: uuid.UUID) -> set[int]:
+    """대기·실행 중인 작업이 있는 소스."""
+    stmt = scoped_select(CollectionJob, workspace_id).where(col(CollectionJob.status).in_(ACTIVE))
+    return {j.source_id for j in session.exec(stmt)}
+
+
+def fail_interrupted(session: Session, workspace_id: uuid.UUID, message: str) -> list[int]:
+    """대기·실행 중으로 남은 작업을 실패로 끝낸다 (서버가 실행 도중 멈춘 경우). 끝낸 작업 id."""
+    stmt = scoped_select(CollectionJob, workspace_id).where(col(CollectionJob.status).in_(ACTIVE))
+    ids = [j.id for j in session.exec(stmt)]
+    for job_id in ids:
+        fail_job(session, workspace_id, job_id, message)
+    return ids
 
 
 def _require(session: Session, workspace_id: uuid.UUID, job_id: int) -> CollectionJob:

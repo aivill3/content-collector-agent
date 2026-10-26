@@ -5,7 +5,7 @@ seed(app/db/seed.py)와 API 의존성(app/api/deps.get_current_workspace)이 같
 """
 import uuid
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.db.models import Workspace
 from app.domain.enums import WorkspaceType
@@ -38,3 +38,8 @@ def ensure_default_workspace(session: Session) -> Workspace:
     return get_workspace(session, DEFAULT_WORKSPACE_ID) or create_workspace(
         session, id=DEFAULT_WORKSPACE_ID, name=DEFAULT_WORKSPACE_NAME, type=WorkspaceType.PERSONAL,
     )
+
+
+def list_workspace_ids(session: Session) -> list[uuid.UUID]:
+    """모든 워크스페이스 id. 워크스페이스를 가로지르는 관리 작업(서버 시작 시 정리 등)만 쓴다."""
+    return list(session.exec(select(Workspace.id)))

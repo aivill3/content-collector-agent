@@ -37,10 +37,10 @@ from sqlmodel import Session, col
 
 from app.core.config import DISPLAY_TZ
 from app.core.timeutil import day_start_utc, days_to_utc_range, display_date
-from app.db.models import CollectionJob, Content, ContentKeywordHit, JobApiResponse, Source
+from app.db.models import CollectionJob, Content, ContentAnalysis, ContentKeywordHit, JobApiResponse, Source
 from app.db.types import utcnow
 from app.domain.content import Article
-from app.domain.enums import CollectionPath, JobStatus
+from app.domain.enums import CollectionPath, JobStatus, Relevance
 from app.processors.date_filter import parse_dt
 from app.processors.deduplication import canonical_url
 from app.repositories import jobs
@@ -276,6 +276,8 @@ class ContentQuery:
     q: str = ""                           # 제목 부분 일치 (대소문자 무시)
     sort: str = "collected_at"            # collected_at | published_at
     descending: bool = True
+    relevance: Relevance | None = None    # 키워드 관련도 (content_analyses.relevance)
+    hide_passing: bool = False            # '스쳐 지나감' 빼기 (분석 설정 passing_mode=hide). relevance 를 주면 무시
 
 
 def _escape_like(text: str) -> str:
@@ -312,6 +314,10 @@ def search_contents(
             conds.append(column < day_start_utc(query.last + timedelta(days=1), tz))
     if query.q.strip():
         conds.append(col(Content.title).ilike(f"%{_escape_like(query.q.strip())}%", escape="\\"))
+    if query.relevance is not None:
+        conds.append(col(Content.id).in_(_with_relevance(workspace_id, Relevance(query.relevance))))
+    elif query.hide_passing:
+        conds.append(col(Content.id).not_in(_with_relevance(workspace_id, Relevance.PASSING)))
 
     base = scoped_select(Content, workspace_id).where(*conds)
     total = session.exec(base.with_only_columns(func.count(col(Content.id)))).one()
@@ -322,6 +328,11 @@ def search_contents(
     stmt = (base.options(defer(Content.raw_body), defer(Content.cleaned_body))
             .order_by(order.nulls_last(), tie).offset((page - 1) * size).limit(size))
     return list(session.exec(stmt)), total
+
+
+def _with_relevance(workspace_id: uuid.UUID, relevance: Relevance):
+    return (scoped_select(ContentAnalysis, workspace_id).where(ContentAnalysis.relevance == relevance)
+            .with_only_columns(col(ContentAnalysis.content_id)))
 
 
 def keywords_for(session: Session, workspace_id: uuid.UUID, content_ids: list[int]) -> dict[int, list[str]]:

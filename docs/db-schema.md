@@ -1,6 +1,6 @@
 # DB 정의서
 
-콘텐츠 수집 Agent 백엔드의 DB 구조. 기준은 `backend/app/db/models.py` 와 마이그레이션 `0001`(initial schema)이다.
+콘텐츠 수집 Agent 백엔드의 DB 구조. 기준은 `backend/app/db/models.py` 와 마이그레이션 `0001`(initial schema) · `0002`(키워드 분석)이다.
 모델을 바꾸면 이 문서도 함께 고친다.
 
 ## 1. 개요
@@ -8,7 +8,7 @@
 | 항목 | 내용 |
 |---|---|
 | ORM | SQLModel (SQLAlchemy 2) |
-| 마이그레이션 | Alembic — `backend/alembic/versions/` (현재 head: `0001`) |
+| 마이그레이션 | Alembic — `backend/alembic/versions/` (현재 head: `0002`) |
 | DBMS | 개발 SQLite (`backend/data/app.db`) · 운영 PostgreSQL. `DATABASE_URL` 하나로 바꾼다 |
 | 테넌트 | 워크스페이스. `workspaces` 를 뺀 모든 테이블이 `workspace_id` 를 직접 가진다 |
 | 시각 | 모두 UTC 로 저장 (`UTCDateTime`). 표시는 `DISPLAY_TZ`(기본 Asia/Seoul) |
@@ -25,6 +25,9 @@ erDiagram
     workspaces ||--o{ job_api_responses : ""
     workspaces ||--o{ contents : ""
     workspaces ||--o{ content_keyword_hits : ""
+    workspaces ||--o{ content_analyses : ""
+    workspaces ||--o{ content_terms : ""
+    workspaces ||--o{ content_keyword_stats : ""
 
     sources ||--o{ source_keywords : "CASCADE"
     sources ||--o{ collection_jobs : "RESTRICT"
@@ -34,6 +37,9 @@ erDiagram
     collection_jobs ||--o{ content_keyword_hits : "RESTRICT"
     contents ||--o{ content_keyword_hits : "CASCADE"
     source_keywords |o--o{ content_keyword_hits : "SET NULL"
+    contents ||--o| content_analyses : "CASCADE"
+    contents ||--o{ content_terms : "CASCADE"
+    contents ||--o{ content_keyword_stats : "CASCADE"
 
     workspaces {
         uuid id PK
@@ -80,6 +86,28 @@ erDiagram
         string keyword
         int rank
     }
+    content_analyses {
+        int id PK
+        int content_id FK
+        int tokens
+        float ttr
+        string relevance
+    }
+    content_terms {
+        int id PK
+        int content_id FK
+        string term
+        string pos
+        int count
+    }
+    content_keyword_stats {
+        int id PK
+        int content_id FK
+        string keyword
+        int mentions
+        float density
+        string relevance
+    }
 ```
 
 `workspaces` 로 가는 외래 키는 모두 `ON DELETE RESTRICT` 다.
@@ -95,6 +123,9 @@ erDiagram
 | `job_api_responses` | 외부 API(네이버) 원본 응답 | `repositories/contents.save_collect_result` |
 | `contents` | 수집된 콘텐츠 (시스템만 만든다) | `repositories/contents.save_collect_result` |
 | `content_keyword_hits` | 콘텐츠를 어떤 키워드로 몇 위에서 찾았는지 | `repositories/contents.save_collect_result` |
+| `content_analyses` | 콘텐츠의 글 단위 형태소 지표와 관련도 (콘텐츠당 한 행) | `repositories/analyses.save_text_analysis` |
+| `content_terms` | 콘텐츠 본문의 내용어와 횟수 | `repositories/analyses.save_text_analysis` |
+| `content_keyword_stats` | 키워드별 언급 수치와 관련도 판정 | `repositories/analyses.add_keyword_stats` |
 
 ## 4. 테이블 정의
 
@@ -233,6 +264,61 @@ erDiagram
 - 인덱스: `ix_content_keyword_hits_workspace_id`, `ix_content_keyword_hits_content_id`, `ix_content_keyword_hits_job_id`
 - 소스에서 키워드를 지워도 `source_keyword_id` 만 NULL 이 되고 기록과 `keyword` 문자열은 남는다.
 
+### 4.8 content_analyses — 글 단위 분석
+
+수치는 저장하고 판정만 설정으로 다시 계산한다 (`domain/analysis.py`). 정의는 `services/analysis_service.py` docstring.
+
+| 컬럼 | 타입 | NN | 기본값 | 설명 |
+|---|---|---|---|---|
+| `id` | INTEGER | PK | 자동 증가 | |
+| `workspace_id` | UUID | ✓ | | FK → `workspaces.id` (RESTRICT) |
+| `content_id` | INTEGER | ✓ | | FK → `contents.id` (**CASCADE**) |
+| `settings_version` | INTEGER | ✓ | | 분석할 때의 분석 설정 버전 |
+| `analyzer` | VARCHAR(40) | ✓ | | 형태소 분석기·버전 (예: `kiwi 0.24.0`) |
+| `body_length` | INTEGER | ✓ | | 분석한 정제 본문 길이 |
+| `tokens` | INTEGER | ✓ | | 토큰 수 (문장부호·기호 제외) |
+| `unique_tokens` | INTEGER | ✓ | | (형태, 품사)가 다른 토큰 수 |
+| `nouns` | INTEGER | ✓ | | 명사 수 (NNG·NNP) |
+| `sentences` | INTEGER | ✓ | | 문장 수 |
+| `avg_sentence_len` | FLOAT | ✓ | | 문장당 평균 글자 수 |
+| `ttr` | FLOAT | ✓ | | 어휘 다양도 = unique_tokens / tokens |
+| `relevance` | VARCHAR(20) | | | `Relevance` — 키워드별 판정 중 가장 강한 것. 키워드 수집분이 아니면 NULL |
+| `analyzed_at` | DATETIME | ✓ | 현재 시각 | 분석 시각 |
+
+- UNIQUE `uq_content_analyses_content_id` (`content_id`) — 재분석하면 행을 지우고 새로 쓴다
+- 인덱스: `ix_content_analyses_workspace_id`, `ix_content_analyses_relevance` (목록의 관련도 필터)
+
+### 4.9 content_terms — 본문 내용어 횟수
+
+| 컬럼 | 타입 | NN | 기본값 | 설명 |
+|---|---|---|---|---|
+| `id` | INTEGER | PK | 자동 증가 | |
+| `workspace_id` | UUID | ✓ | | FK → `workspaces.id` (RESTRICT) |
+| `content_id` | INTEGER | ✓ | | FK → `contents.id` (**CASCADE**) |
+| `term` | VARCHAR(100) | ✓ | | 명사·외국어는 형태, 동사·형용사는 기본형(`열리다`) |
+| `pos` | VARCHAR(10) | ✓ | | NNG · NNP · VV · VA · SL |
+| `count` | INTEGER | ✓ | | 본문에 나온 횟수 |
+
+- UNIQUE `uq_content_terms_content_id_term_pos` (`content_id`, `term`, `pos`)
+- 인덱스: `ix_content_terms_workspace_id`, `ix_content_terms_content_id`, `ix_content_terms_workspace_id_term` (단어별 집계)
+- 상위 키워드·밀도는 이 횟수로 조회할 때 계산한다. 품사 범위·분모·불용어를 바꿔도 재분석이 필요 없다.
+
+### 4.10 content_keyword_stats — 키워드 관련도
+
+| 컬럼 | 타입 | NN | 기본값 | 설명 |
+|---|---|---|---|---|
+| `id` | INTEGER | PK | 자동 증가 | |
+| `workspace_id` | UUID | ✓ | | FK → `workspaces.id` (RESTRICT) |
+| `content_id` | INTEGER | ✓ | | FK → `contents.id` (**CASCADE**) |
+| `keyword` | VARCHAR(100) | ✓ | | 이 글을 찾은 키워드 (`content_keyword_hits.keyword`) |
+| `mentions` | INTEGER | ✓ | | 정제 본문의 언급 횟수 (문자열 기준, 대소문자·키워드 안 띄어쓰기 무시) |
+| `density` | FLOAT | ✓ | | 1,000자당 언급 횟수 |
+| `title_has` | BOOLEAN | ✓ | | 제목에 키워드가 있는가 |
+| `relevance` | VARCHAR(20) | ✓ | | `Relevance` 판정 |
+
+- UNIQUE `uq_content_keyword_stats_content_id_keyword` (`content_id`, `keyword`)
+- 인덱스: `ix_content_keyword_stats_workspace_id`, `ix_content_keyword_stats_content_id`
+
 ## 5. sources.config (JSON) 구조
 
 저장 전에 `app/schemas/source_config.py` 로 검증한다. DB 에는 snake_case 로 저장하고, API 에서는 camelCase 로 주고받는다. 모르는 키가 있으면 거부한다(`extra="forbid"`).
@@ -283,6 +369,7 @@ erDiagram
 | `JobStatus` | collection_jobs.status, sources.last_status | `queued` · `running` · `success` · `failed` |
 | `KeywordOrigin` | source_keywords.origin | `manual` 직접 입력 · `related_word` 연관어 추천 |
 | `CollectionPath` | contents.collection_path | `naver` · `board` · `website` |
+| `Relevance` | content_analyses.relevance, content_keyword_stats.relevance | `main` 주제 기사 · `partial` 부분 언급 · `passing` 스쳐 지나감 |
 
 값을 더할 때는 마이그레이션이 필요 없다. 이름을 바꾸거나 지울 때는 기존 행을 옮기는 마이그레이션을 함께 만든다.
 
@@ -298,6 +385,7 @@ erDiagram
    3. `content_keyword_hits` — 이번 수집 글과 API 원본의 URL 중, 워크스페이스에 저장된 콘텐츠와 맞는 것에 (콘텐츠, 키워드) 기록을 더한다. 이미 저장돼 있어서 제외된 글도 기록은 쌓인다.
    4. 작업을 `success` 로 마치고 `sources.last_collected_at · last_status · last_published_at` 을 갱신한다.
 4. 예외가 나면 롤백한 뒤 `jobs.fail_job()` 으로 `failed` 와 `error_message` 를 남긴다. 저장할 콘텐츠는 없다.
+5. 저장이 끝나면 `workers/analysis.analyze_pending()` 이 분석 안 된 글의 `content_analyses`·`content_terms`·`content_keyword_stats` 를 만들고, 이미 분석한 글에 새 키워드 기록이 생겼으면 그 키워드의 수치만 더한다. 분석이 실패해도 작업은 `success` 로 남는다.
 
 repository 는 flush 까지만 하고, 커밋은 워커·라우트가 한다.
 
